@@ -31,3 +31,21 @@ Keep updates concise. At the end of meaningful work:
 3. Commit changes with a short, meaningful message.
 
 Do not commit generated exports from `output/`.
+
+## Finish Command
+
+When the user writes exactly `finish` or asks to close/wrap up the session, do this:
+
+1. Check `git status --short`.
+2. Summarize what changed during the session.
+3. Update `docs/session-log.md` with:
+   - date;
+   - done;
+   - current state;
+   - next ideas.
+4. Update `docs/brief.md`, `docs/decisions.md`, or `docs/algorithm.md` only if stable project direction, decisions, or mechanics changed.
+5. Show the documentation changes briefly.
+6. Commit with a short message if the user wants the session saved.
+7. Remind the user to push with GitHub Desktop if command-line push is unavailable.
+
+Keep the final user-facing summary short and practical.
