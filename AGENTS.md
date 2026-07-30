@@ -1,5 +1,22 @@
 # ENKO Logo Tool - Agent Notes
 
+## Start Command
+
+When the user writes exactly `start` or asks to start/resume this project, do this before other work:
+
+1. Read `docs/brief.md`.
+2. Read `docs/decisions.md`.
+3. Read `docs/session-log.md`.
+4. If the next task changes generator mechanics, also read `docs/algorithm.md`.
+5. Reply with a short status summary:
+   - current project direction;
+   - last stable state;
+   - likely next step.
+
+Keep this startup summary concise.
+
+## Session Context
+
 At the start of a work session, read these files before making project decisions:
 
 1. `docs/brief.md`

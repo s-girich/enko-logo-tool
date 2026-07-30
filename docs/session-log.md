@@ -24,12 +24,19 @@
   - branch: `main`
   - remote: `https://github.com/s-girich/enko-logo-tool.git`
   - first commit: `Initial ENKO logo generator`
+- Added project memory documentation:
+  - `AGENTS.md`
+  - `docs/brief.md`
+  - `docs/decisions.md`
+  - `docs/session-log.md`
+- Added the project `start` command protocol in `AGENTS.md`.
 
 ### Current State
 
 - The stable direction is a clean modular sign using `Розетка` plus `Закрашивать ячейки`.
 - The repository is synchronized with GitHub.
 - The working tree should be kept clean after each meaningful session.
+- In a new session, the user can write `start` to trigger the project memory workflow.
 
 ### Next Ideas
 
