@@ -95,21 +95,21 @@ body {
   text-transform: uppercase;
 }
 
-.field input[type="range"] {
-  grid-column: 1 / 2;
-  width: 100%;
-  accent-color: var(--navy);
-}
-
-.field output {
-  min-width: 34px;
+.field input[type="number"] {
+  width: 96px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   color: var(--navy);
+  background: #fff;
+  font: inherit;
   text-align: right;
 }
 
 .control-grid {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .toggle {

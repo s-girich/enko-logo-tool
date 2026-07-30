@@ -56,50 +56,42 @@
         <div class="control-grid">
           <label class="field">
             <span>Секторы</span>
-            <input id="sectorsInput" type="range" min="4" max="16" step="2" value="8" />
-            <output id="sectorsValue">8</output>
+            <input id="sectorsInput" type="number" min="4" max="16" step="1" value="8" />
           </label>
 
           <label class="field">
             <span>Масштаб</span>
-            <input id="scaleInput" type="range" min="34" max="92" value="62" />
-            <output id="scaleValue">62</output>
+            <input id="scaleInput" type="number" min="34" max="92" step="any" value="62" />
           </label>
 
           <label class="field">
             <span>Смещение</span>
-            <input id="offsetInput" type="range" min="-220" max="220" value="104" />
-            <output id="offsetValue">104</output>
+            <input id="offsetInput" type="number" min="-220" max="220" step="any" value="104" />
           </label>
 
           <label class="field">
             <span>Ячейки</span>
-            <input id="densityInput" type="range" min="1" max="5" value="3" />
-            <output id="densityValue">3</output>
+            <input id="densityInput" type="number" min="1" max="5" step="1" value="3" />
           </label>
 
           <label class="field">
             <span>Толщина рядов</span>
-            <input id="rowWeightInput" type="range" min="55" max="140" value="86" />
-            <output id="rowWeightValue">86</output>
+            <input id="rowWeightInput" type="number" min="55" max="140" step="any" value="86" />
           </label>
 
           <label class="field">
             <span>Промежутки</span>
-            <input id="cellGapInput" type="range" min="0" max="36" value="12" />
-            <output id="cellGapValue">12</output>
+            <input id="cellGapInput" type="number" min="0" max="36" step="any" value="12" />
           </label>
 
           <label class="field">
             <span>Порог заливки</span>
-            <input id="fillThresholdInput" type="range" min="1" max="80" value="14" />
-            <output id="fillThresholdValue">14</output>
+            <input id="fillThresholdInput" type="number" min="1" max="80" step="any" value="14" />
           </label>
 
           <label class="field">
             <span>Вращение рядов</span>
-            <input id="ringTwistInput" type="range" min="-90" max="90" value="28" />
-            <output id="ringTwistValue">28</output>
+            <input id="ringTwistInput" type="number" min="-90" max="90" step="any" value="28" />
           </label>
 
         </div>

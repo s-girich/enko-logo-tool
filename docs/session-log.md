@@ -8,6 +8,9 @@
 - Kept the hidden Canvas only for glyph coverage analysis.
 - Removed the raster-fragment render mode and the inactive refraction and mixing controls.
 - Added SVG export and retained PNG and JSON exports.
+- Replaced numeric sliders with direct number fields for exact parameter tuning.
+- Allowed decimal precision for continuous values while keeping sectors and row count integral.
+- Added safe fallback and range clamping while number fields are being edited.
 - Improved cell classification from five probe points to a 5 x 9 area sample.
 - Made filled modules fully opaque for a cleaner canonical sign.
 - Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.

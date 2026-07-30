@@ -24,17 +24,6 @@ const inputs = {
   showGrid: document.querySelector("#gridToggle"),
 };
 
-const outputs = {
-  sectors: document.querySelector("#sectorsValue"),
-  scale: document.querySelector("#scaleValue"),
-  offset: document.querySelector("#offsetValue"),
-  density: document.querySelector("#densityValue"),
-  rowWeight: document.querySelector("#rowWeightValue"),
-  cellGap: document.querySelector("#cellGapValue"),
-  fillThreshold: document.querySelector("#fillThresholdValue"),
-  ringTwist: document.querySelector("#ringTwistValue"),
-};
-
 const palettes = {
   navy: { background: "#132d4d", foreground: "#ffffff", guide: "#52657d" },
   ink: { background: "#101010", foreground: "#ffffff", guide: "#4b4b4b" },
@@ -43,20 +32,30 @@ const palettes = {
 
 let currentPalette = "navy";
 
+function readNumber(input, fallback, options = {}) {
+  const parsed = input.valueAsNumber;
+  if (!Number.isFinite(parsed)) return fallback;
+
+  const minimum = Number(input.min);
+  const maximum = Number(input.max);
+  const clamped = Math.min(maximum, Math.max(minimum, parsed));
+  return options.integer ? Math.round(clamped) : clamped;
+}
+
 function readState() {
   const rawLetter = inputs.letter.value.trim().slice(0, 1).toUpperCase();
   return {
     letter: rawLetter || "Э",
     font: inputs.font.value,
     template: inputs.template.value,
-    sectors: Number(inputs.sectors.value),
-    scale: Number(inputs.scale.value),
-    offset: Number(inputs.offset.value),
-    density: Number(inputs.density.value),
-    rowWeight: Number(inputs.rowWeight.value),
-    cellGap: Number(inputs.cellGap.value),
-    fillThreshold: Number(inputs.fillThreshold.value),
-    ringTwist: Number(inputs.ringTwist.value),
+    sectors: readNumber(inputs.sectors, 8, { integer: true }),
+    scale: readNumber(inputs.scale, 62),
+    offset: readNumber(inputs.offset, 104),
+    density: readNumber(inputs.density, 3, { integer: true }),
+    rowWeight: readNumber(inputs.rowWeight, 86),
+    cellGap: readNumber(inputs.cellGap, 12),
+    fillThreshold: readNumber(inputs.fillThreshold, 14),
+    ringTwist: readNumber(inputs.ringTwist, 28),
     showGrid: inputs.showGrid.checked,
     palette: currentPalette,
   };
@@ -260,10 +259,6 @@ function createSvgElement(name, attributes = {}) {
 
 function render() {
   const state = readState();
-  Object.keys(outputs).forEach((key) => {
-    outputs[key].value = state[key];
-  });
-
   const palette = palettes[state.palette];
   const cells = makeCells(state);
   const pixels = drawSourceLetter(state);
