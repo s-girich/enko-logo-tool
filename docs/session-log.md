@@ -14,6 +14,12 @@
 - Added safe fallback while number fields are being edited.
 - Renamed `Ячейки` to `Ряды` and added live total/visible cell counts to the interface and JSON export.
 - Normalized large row counts into the available radius instead of collapsing excess rings.
+- Added the first non-radial mode: `Квадратный калейдоскоп`.
+- Added fourfold and eightfold glyph-seed symmetry.
+- Added a deterministic SVG vocabulary of rectangles, circles, diamonds, and quarter circles.
+- Added symmetric multicolor palettes for the square mode.
+- Added contextual controls so radial-only parameters are hidden in the square mode.
+- Verified mirrored shape/color pairs, the existing rosette, and the mobile layout.
 - Improved cell classification from five probe points to a 5 x 9 area sample.
 - Made filled modules fully opaque for a cleaner canonical sign.
 - Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.

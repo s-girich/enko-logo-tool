@@ -6,6 +6,12 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const SIZE = 1000;
 const CENTER = SIZE / 2;
 const cellCountOutput = document.querySelector("#cellCountValue");
+const sectorsLabel = document.querySelector("#sectorsLabel");
+const ringTwistLabel = document.querySelector("#ringTwistLabel");
+const metricLabel = document.querySelector("#metricLabel");
+const symmetryField = document.querySelector("#symmetryField");
+const densityField = document.querySelector("#densityField");
+const rowWeightField = document.querySelector("#rowWeightField");
 
 sourceCanvas.width = SIZE;
 sourceCanvas.height = SIZE;
@@ -14,6 +20,7 @@ const inputs = {
   letter: document.querySelector("#letterInput"),
   font: document.querySelector("#fontSelect"),
   template: document.querySelector("#templateSelect"),
+  symmetry: document.querySelector("#symmetrySelect"),
   sectors: document.querySelector("#sectorsInput"),
   scale: document.querySelector("#scaleInput"),
   offset: document.querySelector("#offsetInput"),
@@ -26,15 +33,30 @@ const inputs = {
 };
 
 const palettes = {
-  navy: { background: "#132d4d", foreground: "#ffffff", guide: "#52657d" },
-  ink: { background: "#101010", foreground: "#ffffff", guide: "#4b4b4b" },
-  paper: { background: "#f7f4ed", foreground: "#132d4d", guide: "#c6c7c5" },
+  navy: {
+    background: "#132d4d",
+    foreground: "#ffffff",
+    guide: "#52657d",
+    accents: ["#ffffff", "#58c4d8", "#42d6a4", "#ff5d73", "#ffc857"],
+  },
+  ink: {
+    background: "#101010",
+    foreground: "#ffffff",
+    guide: "#4b4b4b",
+    accents: ["#ffffff", "#1688c7", "#45d6a8", "#ff2450", "#ffbf47"],
+  },
+  paper: {
+    background: "#f7f4ed",
+    foreground: "#132d4d",
+    guide: "#c6c7c5",
+    accents: ["#132d4d", "#1688c7", "#21b98b", "#f43f5e", "#f5a623"],
+  },
 };
 
 let currentPalette = "navy";
 
 function readNumber(input, fallback, options = {}) {
-  const parsed = input.valueAsNumber;
+  const parsed = "valueAsNumber" in input ? input.valueAsNumber : Number(input.value);
   if (!Number.isFinite(parsed)) return fallback;
   return options.integer ? Math.round(parsed) : parsed;
 }
@@ -45,14 +67,15 @@ function readState() {
     letter: rawLetter || "Э",
     font: inputs.font.value,
     template: inputs.template.value,
-    sectors: readNumber(inputs.sectors, 8, { integer: true }),
+    symmetry: readNumber(inputs.symmetry, 8, { integer: true }),
+    sectors: readNumber(inputs.sectors, 10, { integer: true }),
     scale: readNumber(inputs.scale, 62),
     offset: readNumber(inputs.offset, 104),
     density: readNumber(inputs.density, 3, { integer: true }),
     rowWeight: readNumber(inputs.rowWeight, 86),
     cellGap: readNumber(inputs.cellGap, 12),
     fillThreshold: readNumber(inputs.fillThreshold, 14),
-    ringTwist: readNumber(inputs.ringTwist, 28),
+    ringTwist: readNumber(inputs.ringTwist, 12),
     showGrid: inputs.showGrid.checked,
     palette: currentPalette,
   };
@@ -221,11 +244,17 @@ function makeCells(state) {
 
 function drawSourceLetter(state) {
   sourceCtx.clearRect(0, 0, SIZE, SIZE);
+  sourceCtx.save();
   sourceCtx.fillStyle = "#000000";
   sourceCtx.textAlign = "center";
   sourceCtx.textBaseline = "middle";
   sourceCtx.font = `900 ${state.scale * 8}px ${state.font}`;
-  sourceCtx.fillText(state.letter, CENTER, CENTER + state.offset * 0.12);
+  sourceCtx.translate(CENTER, CENTER);
+  if (state.template === "square-kaleidoscope") {
+    sourceCtx.rotate((state.ringTwist * Math.PI) / 180);
+  }
+  sourceCtx.fillText(state.letter, 0, state.offset * 0.12);
+  sourceCtx.restore();
   return sourceCtx.getImageData(0, 0, SIZE, SIZE).data;
 }
 
@@ -255,31 +284,253 @@ function sampleCellCoverage(cell, gap, pixels) {
   return alpha / (radialSamples * angularSamples);
 }
 
+function sampleRectCoverage(rect, pixels) {
+  const samples = 5;
+  let alpha = 0;
+
+  for (let row = 0; row < samples; row += 1) {
+    for (let column = 0; column < samples; column += 1) {
+      const x = Math.max(
+        0,
+        Math.min(SIZE - 1, Math.round(rect.x + ((column + 0.5) / samples) * rect.size))
+      );
+      const y = Math.max(
+        0,
+        Math.min(SIZE - 1, Math.round(rect.y + ((row + 0.5) / samples) * rect.size))
+      );
+      alpha += pixels[(y * SIZE + x) * 4 + 3] / 255;
+    }
+  }
+
+  return alpha / (samples * samples);
+}
+
+function makeSquareModules(state, pixels) {
+  const count = Math.max(2, Math.abs(state.sectors));
+  const extent = 700;
+  const start = (SIZE - extent) / 2;
+  const cellSize = extent / count;
+  const threshold = state.fillThreshold / 100;
+  const modules = [];
+
+  for (let row = 0; row < count; row += 1) {
+    for (let column = 0; column < count; column += 1) {
+      let seedRow = Math.floor(Math.abs(row - (count - 1) / 2));
+      let seedColumn = Math.floor(Math.abs(column - (count - 1) / 2));
+
+      if (state.symmetry === 8 && seedRow > seedColumn) {
+        [seedRow, seedColumn] = [seedColumn, seedRow];
+      }
+
+      const seedRect = {
+        x: CENTER + seedColumn * cellSize,
+        y: CENTER + seedRow * cellSize,
+        size: cellSize,
+      };
+      const coverage = sampleRectCoverage(seedRect, pixels);
+      if (coverage < threshold) continue;
+
+      const grammarKey =
+        Math.abs((seedRow + 1) * 7 + (seedColumn + 1) * 11 + Math.round(coverage * 100)) % 4;
+      const shape = ["rect", "circle", "diamond", "quarter"][grammarKey];
+      const horizontal = column < count / 2 ? "right" : "left";
+      const vertical = row < count / 2 ? "bottom" : "top";
+
+      modules.push({
+        row,
+        column,
+        seedRow,
+        seedColumn,
+        coverage,
+        shape,
+        corner: `${vertical}-${horizontal}`,
+        x: start + column * cellSize,
+        y: start + row * cellSize,
+        size: cellSize,
+      });
+    }
+  }
+
+  return { count, extent, start, modules, total: count * count };
+}
+
+function getSquareGeometry(module, gap) {
+  const inset = gap * 0.5;
+  const size = module.size - gap;
+  if (size <= 1) return null;
+  return {
+    x: module.x + inset,
+    y: module.y + inset,
+    size,
+  };
+}
+
+function diamondPathData({ x, y, size }) {
+  const half = size / 2;
+  return [
+    `M ${formatNumber(x + half)} ${formatNumber(y)}`,
+    `L ${formatNumber(x + size)} ${formatNumber(y + half)}`,
+    `L ${formatNumber(x + half)} ${formatNumber(y + size)}`,
+    `L ${formatNumber(x)} ${formatNumber(y + half)}`,
+    "Z",
+  ].join(" ");
+}
+
+function quarterPathData(geometry, corner) {
+  const { x, y, size } = geometry;
+  const points = {
+    "bottom-right": {
+      center: [x + size, y + size],
+      start: [x, y + size],
+      end: [x + size, y],
+    },
+    "bottom-left": {
+      center: [x, y + size],
+      start: [x, y],
+      end: [x + size, y + size],
+    },
+    "top-left": {
+      center: [x, y],
+      start: [x + size, y],
+      end: [x, y + size],
+    },
+    "top-right": {
+      center: [x + size, y],
+      start: [x + size, y + size],
+      end: [x, y],
+    },
+  };
+  const point = points[corner];
+  return [
+    `M ${formatNumber(point.center[0])} ${formatNumber(point.center[1])}`,
+    `L ${formatNumber(point.start[0])} ${formatNumber(point.start[1])}`,
+    `A ${formatNumber(size)} ${formatNumber(size)} 0 0 1 ${formatNumber(point.end[0])} ${formatNumber(point.end[1])}`,
+    "Z",
+  ].join(" ");
+}
+
 function createSvgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
   Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
   return element;
 }
 
-function render() {
-  const state = readState();
-  const palette = palettes[state.palette];
+function updateControlContext(state) {
+  const isSquare = state.template === "square-kaleidoscope";
+  symmetryField.classList.toggle("is-hidden", !isSquare);
+  densityField.classList.toggle("is-hidden", isSquare);
+  rowWeightField.classList.toggle("is-hidden", isSquare);
+  sectorsLabel.textContent = isSquare ? "Модули по стороне" : "Секторы";
+  ringTwistLabel.textContent = isSquare ? "Поворот семени" : "Вращение рядов";
+  metricLabel.textContent = isSquare
+    ? "Модули: сетка / заполнено"
+    : "Ячейки: всего / после промежутков";
+}
+
+function appendSquareModule(group, module, geometry, palette) {
+  const coverageBand = Math.round(module.coverage * 4);
+  const colorKey =
+    (module.seedRow * 7 +
+      module.seedColumn * 11 +
+      coverageBand * 3 +
+      module.shape.charCodeAt(0)) %
+    palette.accents.length;
+  const fill = palette.accents[colorKey];
+  let shape;
+
+  if (module.shape === "circle") {
+    shape = createSvgElement("circle", {
+      cx: formatNumber(geometry.x + geometry.size / 2),
+      cy: formatNumber(geometry.y + geometry.size / 2),
+      r: formatNumber(geometry.size / 2),
+      fill,
+    });
+  } else if (module.shape === "diamond") {
+    shape = createSvgElement("path", {
+      d: diamondPathData(geometry),
+      fill,
+    });
+  } else if (module.shape === "quarter") {
+    shape = createSvgElement("path", {
+      d: quarterPathData(geometry, module.corner),
+      fill,
+    });
+  } else {
+    shape = createSvgElement("rect", {
+      x: formatNumber(geometry.x),
+      y: formatNumber(geometry.y),
+      width: formatNumber(geometry.size),
+      height: formatNumber(geometry.size),
+      fill,
+    });
+  }
+
+  shape.setAttribute("data-shape", module.shape);
+  shape.setAttribute("data-grid-row", module.row);
+  shape.setAttribute("data-grid-column", module.column);
+  shape.setAttribute("data-seed", `${module.seedRow}:${module.seedColumn}`);
+  group.append(shape);
+}
+
+function renderSquareKaleidoscope(state, palette, pixels) {
+  const square = makeSquareModules(state, pixels);
+  const renderableModules = square.modules.filter((module) =>
+    getSquareGeometry(module, state.cellGap)
+  );
+  cellCountOutput.value = `${square.total} / ${renderableModules.length}`;
+  const mark = createSvgElement("g", {
+    "data-layer": "mark",
+  });
+
+  renderableModules.forEach((module) => {
+    const geometry = getSquareGeometry(module, state.cellGap);
+    appendSquareModule(mark, module, geometry, palette);
+  });
+  svg.append(mark);
+
+  if (state.showGrid) {
+    const grid = createSvgElement("g", {
+      fill: "none",
+      stroke: palette.guide,
+      "stroke-width": 1.35,
+      "data-layer": "grid",
+    });
+    const cellSize = square.extent / square.count;
+    for (let row = 0; row < square.count; row += 1) {
+      for (let column = 0; column < square.count; column += 1) {
+        grid.append(
+          createSvgElement("rect", {
+            x: formatNumber(square.start + column * cellSize),
+            y: formatNumber(square.start + row * cellSize),
+            width: formatNumber(cellSize),
+            height: formatNumber(cellSize),
+          })
+        );
+      }
+    }
+    svg.append(grid);
+
+    svg.append(
+      createSvgElement("rect", {
+        x: square.start,
+        y: square.start,
+        width: square.extent,
+        height: square.extent,
+        fill: "none",
+        stroke: palette.guide,
+        "stroke-width": 2,
+        "data-layer": "boundary",
+      })
+    );
+  }
+}
+
+function renderRadial(state, palette, pixels) {
   const cells = makeCells(state);
   const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
   cellCountOutput.value = `${cells.length} / ${visibleCellCount}`;
-  const pixels = drawSourceLetter(state);
   const gap = state.template === "burst" ? Math.max(10, state.cellGap) : state.cellGap;
   const threshold = state.fillThreshold / 100;
-
-  svg.replaceChildren();
-  svg.append(
-    createSvgElement("rect", {
-      width: SIZE,
-      height: SIZE,
-      fill: palette.background,
-    })
-  );
-
   const mark = createSvgElement("g", {
     fill: palette.foreground,
     "data-layer": "mark",
@@ -316,6 +567,30 @@ function render() {
         "data-layer": "boundary",
       })
     );
+  }
+}
+
+function render() {
+  const state = readState();
+  const palette = palettes[state.palette];
+  updateControlContext(state);
+  const pixels = drawSourceLetter(state);
+
+  svg.setAttribute("data-template", state.template);
+  svg.setAttribute("data-symmetry", state.template === "square-kaleidoscope" ? state.symmetry : 0);
+  svg.replaceChildren();
+  svg.append(
+    createSvgElement("rect", {
+      width: SIZE,
+      height: SIZE,
+      fill: palette.background,
+    })
+  );
+
+  if (state.template === "square-kaleidoscope") {
+    renderSquareKaleidoscope(state, palette, pixels);
+  } else {
+    renderRadial(state, palette, pixels);
   }
 }
 
@@ -372,10 +647,23 @@ function downloadPng() {
 }
 
 function randomize() {
-  const templates = ["brick", "galaxy", "sunburst", "mixed", "barcode", "pulse", "burst", "rosette"];
+  const templates = [
+    "square-kaleidoscope",
+    "brick",
+    "galaxy",
+    "sunburst",
+    "mixed",
+    "barcode",
+    "pulse",
+    "burst",
+    "rosette",
+  ];
   inputs.template.value =
-    Math.random() < 0.4 ? "rosette" : templates[Math.floor(Math.random() * templates.length)];
-  inputs.sectors.value = String([4, 6, 8, 10, 12, 16][Math.floor(Math.random() * 6)]);
+    Math.random() < 0.45
+      ? "square-kaleidoscope"
+      : templates[Math.floor(Math.random() * templates.length)];
+  inputs.symmetry.value = Math.random() < 0.5 ? "4" : "8";
+  inputs.sectors.value = String([4, 6, 8, 10, 12][Math.floor(Math.random() * 5)]);
   inputs.scale.value = String(46 + Math.floor(Math.random() * 36));
   inputs.offset.value = String(-50 + Math.floor(Math.random() * 160));
   inputs.density.value = String(2 + Math.floor(Math.random() * 4));
@@ -402,12 +690,25 @@ document.querySelector("#downloadSvgButton").addEventListener("click", downloadS
 document.querySelector("#downloadPngButton").addEventListener("click", downloadPng);
 document.querySelector("#downloadJsonButton").addEventListener("click", () => {
   const state = readState();
-  const cells = makeCells(state);
-  const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
+  let cellCount;
+  let visibleCellCount;
+
+  if (state.template === "square-kaleidoscope") {
+    const square = makeSquareModules(state, drawSourceLetter(state));
+    cellCount = square.total;
+    visibleCellCount = square.modules.filter((module) =>
+      getSquareGeometry(module, state.cellGap)
+    ).length;
+  } else {
+    const cells = makeCells(state);
+    cellCount = cells.length;
+    visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
+  }
+
   download(
     `enko-prism-${state.letter}.json`,
     "application/json",
-    JSON.stringify({ ...state, cellCount: cells.length, visibleCellCount }, null, 2)
+    JSON.stringify({ ...state, cellCount, visibleCellCount }, null, 2)
   );
 });
 

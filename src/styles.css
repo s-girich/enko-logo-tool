@@ -112,6 +112,10 @@ body {
   gap: 12px;
 }
 
+.is-hidden {
+  display: none;
+}
+
 .metric {
   display: flex;
   align-items: center;

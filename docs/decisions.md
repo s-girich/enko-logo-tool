@@ -22,6 +22,9 @@
 - Raster fragments, refraction, and mixing controls were removed.
 - Numeric controls have no artificial min/max limits so practical ranges can be established through testing.
 - Large row counts are normalized into the available radius; total and post-gap cell counts remain visible.
+- `Квадратный калейдоскоп` is the first experimental non-radial mode.
+- Its output is derived from a folded glyph seed and a fixed vector vocabulary: rectangles, circles, diamonds, and quarter circles.
+- Fourfold and eightfold symmetry are supported; symmetric modules share shape and color.
 
 ## Rolled Back
 

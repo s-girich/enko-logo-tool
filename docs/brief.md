@@ -25,6 +25,15 @@ The strongest direction is a modular, canonical graphic render:
 - `Fill threshold`: 10-24
 - `Grid`: off for final sign, on for debugging
 
+## Current Experiment
+
+- `Template`: `Квадратный калейдоскоп`
+- `Symmetry`: eight reflections
+- `Modules`: 10 per side
+- `Seed rotation`: 12 degrees
+- Output vocabulary: rectangles, circles, diamonds, and quarter circles
+- Multicolor assignment remains deterministic and symmetric
+
 ## Avoided Directions
 
 - Heavy raster slicing can look like shredded paper.

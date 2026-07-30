@@ -42,6 +42,7 @@
         <label class="field">
           <span>Сетка</span>
           <select id="templateSelect">
+            <option value="square-kaleidoscope" selected>Квадратный калейдоскоп</option>
             <option value="brick">Кирпичная</option>
             <option value="galaxy">Галактика</option>
             <option value="sunburst">Лучевая</option>
@@ -49,14 +50,22 @@
             <option value="barcode">Штриховая</option>
             <option value="pulse">Пульс</option>
             <option value="burst">Из буквы</option>
-            <option value="rosette" selected>Розетка</option>
+            <option value="rosette">Розетка</option>
+          </select>
+        </label>
+
+        <label class="field" id="symmetryField">
+          <span>Симметрия</span>
+          <select id="symmetrySelect">
+            <option value="4">Четыре отражения</option>
+            <option value="8" selected>Восемь отражений</option>
           </select>
         </label>
 
         <div class="control-grid">
           <label class="field">
-            <span>Секторы</span>
-            <input id="sectorsInput" type="number" step="1" value="8" />
+            <span id="sectorsLabel">Модули по стороне</span>
+            <input id="sectorsInput" type="number" step="1" value="10" />
           </label>
 
           <label class="field">
@@ -69,12 +78,12 @@
             <input id="offsetInput" type="number" step="any" value="104" />
           </label>
 
-          <label class="field">
+          <label class="field" id="densityField">
             <span>Ряды</span>
             <input id="densityInput" type="number" step="1" value="3" />
           </label>
 
-          <label class="field">
+          <label class="field" id="rowWeightField">
             <span>Толщина рядов</span>
             <input id="rowWeightInput" type="number" step="any" value="86" />
           </label>
@@ -90,15 +99,15 @@
           </label>
 
           <label class="field">
-            <span>Вращение рядов</span>
-            <input id="ringTwistInput" type="number" step="any" value="28" />
+            <span id="ringTwistLabel">Поворот семени</span>
+            <input id="ringTwistInput" type="number" step="any" value="12" />
           </label>
 
         </div>
 
         <div class="metric">
-          <span>Ячейки: всего / после промежутков</span>
-          <output id="cellCountValue">32 / 32</output>
+          <span id="metricLabel">Модули: сетка / заполнено</span>
+          <output id="cellCountValue">100 / 24</output>
         </div>
 
         <label class="toggle">
