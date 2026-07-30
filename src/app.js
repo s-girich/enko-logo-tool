@@ -5,6 +5,7 @@ const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SIZE = 1000;
 const CENTER = SIZE / 2;
+const cellCountOutput = document.querySelector("#cellCountValue");
 
 sourceCanvas.width = SIZE;
 sourceCanvas.height = SIZE;
@@ -35,11 +36,7 @@ let currentPalette = "navy";
 function readNumber(input, fallback, options = {}) {
   const parsed = input.valueAsNumber;
   if (!Number.isFinite(parsed)) return fallback;
-
-  const minimum = Number(input.min);
-  const maximum = Number(input.max);
-  const clamped = Math.min(maximum, Math.max(minimum, parsed));
-  return options.integer ? Math.round(clamped) : clamped;
+  return options.integer ? Math.round(parsed) : parsed;
 }
 
 function readState() {
@@ -184,11 +181,18 @@ function cellPathData(cell, gap = 0) {
 
 function makeCells(state) {
   const cells = [];
+  const ringCount = Math.max(0, state.density);
+  const ringSpecs = Array.from({ length: ringCount }, (_, ring) =>
+    getRingSpec(state.template, ring, state.sectors, state.rowWeight)
+  );
+  const availableRadius = 430 - 24;
+  const desiredRadius = ringSpecs.reduce((sum, spec) => sum + spec.width, 0);
+  const widthScale = desiredRadius > availableRadius ? availableRadius / desiredRadius : 1;
   let innerRadius = 24;
 
-  for (let ring = 0; ring < state.density; ring += 1) {
-    const spec = getRingSpec(state.template, ring, state.sectors, state.rowWeight);
-    const outerRadius = Math.min(430, innerRadius + spec.width);
+  for (let ring = 0; ring < ringCount; ring += 1) {
+    const spec = ringSpecs[ring];
+    const normalizedOuterRadius = Math.min(430, innerRadius + spec.width * widthScale);
     const cellAngle = 360 / spec.count;
     const twistScale = state.template === "rosette" ? 0.35 : 1;
     const ringTurn =
@@ -203,13 +207,13 @@ function makeCells(state) {
         ring,
         index,
         innerRadius,
-        outerRadius,
+        outerRadius: normalizedOuterRadius,
         start: angle - cellAngle * 0.47,
         end: angle + cellAngle * 0.47,
       });
     }
 
-    innerRadius = outerRadius;
+    innerRadius = normalizedOuterRadius;
   }
 
   return cells;
@@ -261,6 +265,8 @@ function render() {
   const state = readState();
   const palette = palettes[state.palette];
   const cells = makeCells(state);
+  const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
+  cellCountOutput.value = `${cells.length} / ${visibleCellCount}`;
   const pixels = drawSourceLetter(state);
   const gap = state.template === "burst" ? Math.max(10, state.cellGap) : state.cellGap;
   const threshold = state.fillThreshold / 100;
@@ -395,10 +401,13 @@ document.querySelector("#randomButton").addEventListener("click", randomize);
 document.querySelector("#downloadSvgButton").addEventListener("click", downloadSvg);
 document.querySelector("#downloadPngButton").addEventListener("click", downloadPng);
 document.querySelector("#downloadJsonButton").addEventListener("click", () => {
+  const state = readState();
+  const cells = makeCells(state);
+  const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
   download(
-    `enko-prism-${readState().letter}.json`,
+    `enko-prism-${state.letter}.json`,
     "application/json",
-    JSON.stringify(readState(), null, 2)
+    JSON.stringify({ ...state, cellCount: cells.length, visibleCellCount }, null, 2)
   );
 });
 

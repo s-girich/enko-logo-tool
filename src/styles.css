@@ -112,6 +112,24 @@ body {
   gap: 12px;
 }
 
+.metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 10px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metric output {
+  color: var(--navy);
+  font-variant-numeric: tabular-nums;
+}
+
 .toggle {
   display: flex;
   align-items: center;

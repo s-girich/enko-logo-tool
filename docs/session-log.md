@@ -10,7 +10,10 @@
 - Added SVG export and retained PNG and JSON exports.
 - Replaced numeric sliders with direct number fields for exact parameter tuning.
 - Allowed decimal precision for continuous values while keeping sectors and row count integral.
-- Added safe fallback and range clamping while number fields are being edited.
+- Removed artificial minimum and maximum limits from all numeric controls.
+- Added safe fallback while number fields are being edited.
+- Renamed `Ячейки` to `Ряды` and added live total/visible cell counts to the interface and JSON export.
+- Normalized large row counts into the available radius instead of collapsing excess rings.
 - Improved cell classification from five probe points to a 5 x 9 area sample.
 - Made filled modules fully opaque for a cleaner canonical sign.
 - Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.

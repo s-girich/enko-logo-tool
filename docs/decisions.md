@@ -20,6 +20,8 @@
 - Cells above the fill threshold become opaque SVG paths.
 - Grid lines and the outer boundary are debugging guides and appear only when `showGrid` is enabled.
 - Raster fragments, refraction, and mixing controls were removed.
+- Numeric controls have no artificial min/max limits so practical ranges can be established through testing.
+- Large row counts are normalized into the available radius; total and post-gap cell counts remain visible.
 
 ## Rolled Back
 

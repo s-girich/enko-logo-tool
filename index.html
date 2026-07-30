@@ -56,44 +56,49 @@
         <div class="control-grid">
           <label class="field">
             <span>Секторы</span>
-            <input id="sectorsInput" type="number" min="4" max="16" step="1" value="8" />
+            <input id="sectorsInput" type="number" step="1" value="8" />
           </label>
 
           <label class="field">
             <span>Масштаб</span>
-            <input id="scaleInput" type="number" min="34" max="92" step="any" value="62" />
+            <input id="scaleInput" type="number" step="any" value="62" />
           </label>
 
           <label class="field">
             <span>Смещение</span>
-            <input id="offsetInput" type="number" min="-220" max="220" step="any" value="104" />
+            <input id="offsetInput" type="number" step="any" value="104" />
           </label>
 
           <label class="field">
-            <span>Ячейки</span>
-            <input id="densityInput" type="number" min="1" max="5" step="1" value="3" />
+            <span>Ряды</span>
+            <input id="densityInput" type="number" step="1" value="3" />
           </label>
 
           <label class="field">
             <span>Толщина рядов</span>
-            <input id="rowWeightInput" type="number" min="55" max="140" step="any" value="86" />
+            <input id="rowWeightInput" type="number" step="any" value="86" />
           </label>
 
           <label class="field">
             <span>Промежутки</span>
-            <input id="cellGapInput" type="number" min="0" max="36" step="any" value="12" />
+            <input id="cellGapInput" type="number" step="any" value="12" />
           </label>
 
           <label class="field">
             <span>Порог заливки</span>
-            <input id="fillThresholdInput" type="number" min="1" max="80" step="any" value="14" />
+            <input id="fillThresholdInput" type="number" step="any" value="14" />
           </label>
 
           <label class="field">
             <span>Вращение рядов</span>
-            <input id="ringTwistInput" type="number" min="-90" max="90" step="any" value="28" />
+            <input id="ringTwistInput" type="number" step="any" value="28" />
           </label>
 
+        </div>
+
+        <div class="metric">
+          <span>Ячейки: всего / после промежутков</span>
+          <output id="cellCountValue">32 / 32</output>
         </div>
 
         <label class="toggle">
