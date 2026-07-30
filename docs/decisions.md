@@ -8,18 +8,18 @@
 
 ## Rendering
 
-- Current exploration uses raster/canvas for speed and flexibility.
-- SVG/vector export is postponed until the visual mechanics are stable.
-- PNG export is acceptable during the visual search phase.
+- The visible preview and primary export are SVG.
+- The hidden Canvas is retained only as a glyph coverage mask.
+- PNG remains available as a 2000 x 2000 raster export rendered from the current SVG.
+- The generator has one visual mode: vector solid cells.
 
 ## Transformation
 
 - The letter is drawn into a hidden canvas.
-- The visible sign is generated from radial grid cells.
-- Two render modes exist:
-  - raster fragments: cells clip and transform pieces of the source letter;
-  - solid cells: cells become filled modules when enough of the letter falls inside them.
-- The cleaner direction is `solid cells`, because it produces more canonical graphic signs.
+- Coverage is sampled across the area of each radial cell.
+- Cells above the fill threshold become opaque SVG paths.
+- Grid lines and the outer boundary are debugging guides and appear only when `showGrid` is enabled.
+- Raster fragments, refraction, and mixing controls were removed.
 
 ## Rolled Back
 

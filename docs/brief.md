@@ -8,8 +8,10 @@ The design idea: take a letter as source material and transform it through a rad
 
 - Static `index.html`
 - Plain CSS in `src/styles.css`
-- Plain JavaScript and Canvas in `src/app.js`
+- Plain JavaScript and SVG in `src/app.js`
+- Hidden Canvas mask for glyph coverage analysis
 - No build step
+- SVG export
 - PNG export
 - JSON export for generation parameters
 
@@ -18,7 +20,7 @@ The design idea: take a letter as source material and transform it through a rad
 The strongest direction is a modular, canonical graphic render:
 
 - `Template`: `Розетка`
-- `Render`: `Закрашивать ячейки`
+- `Render`: vector solid cells
 - `Cell gaps`: 8-18
 - `Fill threshold`: 10-24
 - `Grid`: off for final sign, on for debugging

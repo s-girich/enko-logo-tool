@@ -4,6 +4,14 @@
 
 ### Done
 
+- Replaced the visible Canvas renderer with an SVG renderer.
+- Kept the hidden Canvas only for glyph coverage analysis.
+- Removed the raster-fragment render mode and the inactive refraction and mixing controls.
+- Added SVG export and retained PNG and JSON exports.
+- Improved cell classification from five probe points to a 5 x 9 area sample.
+- Made filled modules fully opaque for a cleaner canonical sign.
+- Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.
+- Made the outer boundary a debugging guide that is hidden with the grid.
 - Created the initial ENKO Logo Tool project.
 - Built a static browser app with `index.html`, `src/styles.css`, and `src/app.js`.
 - Implemented a Canvas-based raster generator.
@@ -34,7 +42,9 @@
 
 ### Current State
 
-- The stable direction is a clean modular sign using `Розетка` plus `Закрашивать ячейки`.
+- The stable direction is a clean modular SVG sign using `Розетка` and solid cells.
+- The visible preview and downloaded SVG use the same path geometry.
+- Desktop and mobile layouts were visually checked in the browser.
 - The repository is synchronized with GitHub.
 - The working tree should be kept clean after each meaningful session.
 - In a new session, the user can write `start` to trigger the project memory workflow.
@@ -42,10 +52,10 @@
 
 ### Next Ideas
 
-- Improve the solid-cell filling logic so signs feel more intentional and less noisy.
+- Compare several letters and tune the area-coverage threshold range.
+- Explore weighting samples toward cell centers or preserving connected groups.
 - Explore alternate canonical grids that still derive from the source letter.
 - Add curated presets for good ENKO-style outputs.
-- Later, consider vector export once the visual system is stable.
 
 ### Wrap-Up Notes
 

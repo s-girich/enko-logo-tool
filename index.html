@@ -10,14 +10,14 @@
     <main class="app">
       <section class="stage" aria-label="Предпросмотр знака">
         <div class="preview-shell">
-          <canvas
-            id="logoCanvas"
-            class="logo-canvas"
-            width="1000"
-            height="1000"
+          <svg
+            id="logoSvg"
+            class="logo-svg"
+            viewBox="0 0 1000 1000"
+            xmlns="http://www.w3.org/2000/svg"
             role="img"
             aria-label="Сгенерированный знак"
-          ></canvas>
+          ></svg>
         </div>
       </section>
 
@@ -49,15 +49,7 @@
             <option value="barcode">Штриховая</option>
             <option value="pulse">Пульс</option>
             <option value="burst">Из буквы</option>
-            <option value="rosette">Розетка</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Рендер</span>
-          <select id="renderModeSelect">
-            <option value="solid">Закрашивать ячейки</option>
-            <option value="raster">Растровые фрагменты</option>
+            <option value="rosette" selected>Розетка</option>
           </select>
         </label>
 
@@ -81,12 +73,6 @@
           </label>
 
           <label class="field">
-            <span>Преломление</span>
-            <input id="refractionInput" type="range" min="-80" max="80" value="22" />
-            <output id="refractionValue">22</output>
-          </label>
-
-          <label class="field">
             <span>Ячейки</span>
             <input id="densityInput" type="range" min="1" max="5" value="3" />
             <output id="densityValue">3</output>
@@ -100,8 +86,8 @@
 
           <label class="field">
             <span>Промежутки</span>
-            <input id="cellGapInput" type="range" min="0" max="36" value="8" />
-            <output id="cellGapValue">8</output>
+            <input id="cellGapInput" type="range" min="0" max="36" value="12" />
+            <output id="cellGapValue">12</output>
           </label>
 
           <label class="field">
@@ -116,15 +102,10 @@
             <output id="ringTwistValue">28</output>
           </label>
 
-          <label class="field">
-            <span>Смешивание</span>
-            <input id="recognitionInput" type="range" min="0" max="100" value="62" />
-            <output id="recognitionValue">62</output>
-          </label>
         </div>
 
         <label class="toggle">
-          <input id="gridToggle" type="checkbox" checked />
+          <input id="gridToggle" type="checkbox" />
           <span>Показывать сетку</span>
         </label>
 
@@ -137,6 +118,7 @@
 
         <div class="actions">
           <button id="randomButton" type="button">Вариант</button>
+          <button id="downloadSvgButton" type="button">SVG</button>
           <button id="downloadPngButton" type="button">PNG</button>
           <button id="downloadJsonButton" type="button">JSON</button>
         </div>
