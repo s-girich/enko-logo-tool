@@ -61,6 +61,14 @@ function isKaleidoscopeTemplate(template) {
   return ["square-kaleidoscope", "radial-emblem", "modular-crest"].includes(template);
 }
 
+function isAsymmetricTemplate(template) {
+  return ["tectonics", "skeleton", "packing"].includes(template);
+}
+
+function usesRotatedGlyphSeed(template) {
+  return isKaleidoscopeTemplate(template) || isAsymmetricTemplate(template);
+}
+
 function readNumber(input, fallback, options = {}) {
   const parsed = "valueAsNumber" in input ? input.valueAsNumber : Number(input.value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -256,7 +264,7 @@ function drawSourceLetter(state) {
   sourceCtx.textBaseline = "middle";
   sourceCtx.font = `900 ${state.scale * 8}px ${state.font}`;
   sourceCtx.translate(CENTER, CENTER);
-  if (isKaleidoscopeTemplate(state.template)) {
+  if (usesRotatedGlyphSeed(state.template)) {
     sourceCtx.rotate((state.ringTwist * Math.PI) / 180);
   }
   sourceCtx.fillText(state.letter, 0, state.offset * 0.12);
@@ -309,6 +317,315 @@ function sampleRectCoverage(rect, pixels) {
   }
 
   return alpha / (samples * samples);
+}
+
+function makeGlyphGrid(state, pixels, countOverride = state.sectors) {
+  const count = Math.max(2, Math.abs(Math.round(countOverride)));
+  const extent = 700;
+  const start = (SIZE - extent) / 2;
+  const cellSize = extent / count;
+  const threshold = state.fillThreshold / 100;
+  const cells = [];
+  const active = Array.from({ length: count }, () => Array(count).fill(false));
+
+  for (let row = 0; row < count; row += 1) {
+    for (let column = 0; column < count; column += 1) {
+      const rect = {
+        x: start + column * cellSize,
+        y: start + row * cellSize,
+        size: cellSize,
+      };
+      const coverage = sampleRectCoverage(rect, pixels);
+      const isActive = coverage >= threshold;
+      active[row][column] = isActive;
+      cells.push({
+        row,
+        column,
+        coverage,
+        active: isActive,
+        x: rect.x,
+        y: rect.y,
+        size: cellSize,
+      });
+    }
+  }
+
+  return { count, extent, start, cellSize, cells, active };
+}
+
+function makeDistanceField(active) {
+  const count = active.length;
+  const far = count * 2 + 1;
+  const distance = active.map((row, rowIndex) =>
+    row.map((isActive, columnIndex) => {
+      if (!isActive) return 0;
+      return rowIndex === 0 ||
+        columnIndex === 0 ||
+        rowIndex === count - 1 ||
+        columnIndex === count - 1
+        ? 1
+        : far;
+    })
+  );
+
+  for (let row = 0; row < count; row += 1) {
+    for (let column = 0; column < count; column += 1) {
+      if (!active[row][column]) continue;
+      const top = row > 0 ? distance[row - 1][column] + 1 : 1;
+      const left = column > 0 ? distance[row][column - 1] + 1 : 1;
+      distance[row][column] = Math.min(distance[row][column], top, left);
+    }
+  }
+
+  for (let row = count - 1; row >= 0; row -= 1) {
+    for (let column = count - 1; column >= 0; column -= 1) {
+      if (!active[row][column]) continue;
+      const bottom = row < count - 1 ? distance[row + 1][column] + 1 : 1;
+      const right = column < count - 1 ? distance[row][column + 1] + 1 : 1;
+      distance[row][column] = Math.min(distance[row][column], bottom, right);
+    }
+  }
+
+  return distance;
+}
+
+function makeTectonicZones(state, pixels) {
+  const grid = makeGlyphGrid(state, pixels);
+  const visited = Array.from({ length: grid.count }, () => Array(grid.count).fill(false));
+  const zones = [];
+
+  function canUse(row, column) {
+    return (
+      row >= 0 &&
+      column >= 0 &&
+      row < grid.count &&
+      column < grid.count &&
+      grid.active[row][column] &&
+      !visited[row][column]
+    );
+  }
+
+  for (let row = 0; row < grid.count; row += 1) {
+    for (let column = 0; column < grid.count; column += 1) {
+      if (!canUse(row, column)) continue;
+
+      let columns = 1;
+      let rows = 1;
+      while (columns < 3 && canUse(row, column + columns)) columns += 1;
+      while (rows < 3 && canUse(row + rows, column)) rows += 1;
+
+      if (
+        columns >= 2 &&
+        rows >= 2 &&
+        canUse(row + 1, column + 1) &&
+        (row + column) % 3 === 0
+      ) {
+        columns = 2;
+        rows = 2;
+      } else if (columns >= rows) {
+        rows = 1;
+      } else {
+        columns = 1;
+      }
+
+      let coverage = 0;
+      for (let zoneRow = row; zoneRow < row + rows; zoneRow += 1) {
+        for (let zoneColumn = column; zoneColumn < column + columns; zoneColumn += 1) {
+          visited[zoneRow][zoneColumn] = true;
+          coverage +=
+            grid.cells[zoneRow * grid.count + zoneColumn].coverage / (rows * columns);
+        }
+      }
+
+      const grammar = ["plate", "capsule", "wedge", "disc"];
+      const shape =
+        grammar[
+          Math.abs(row * 7 + column * 11 + rows * 3 + columns * 5 + Math.round(coverage * 10)) %
+            grammar.length
+        ];
+      zones.push({
+        row,
+        column,
+        rows,
+        columns,
+        coverage,
+        shape,
+        x: grid.start + column * grid.cellSize,
+        y: grid.start + row * grid.cellSize,
+        width: columns * grid.cellSize,
+        height: rows * grid.cellSize,
+      });
+    }
+  }
+
+  return {
+    ...grid,
+    zones,
+    activeCount: grid.cells.filter((cell) => cell.active).length,
+  };
+}
+
+function makeSkeletonGraph(state, pixels) {
+  const grid = makeGlyphGrid(state, pixels);
+  const distance = makeDistanceField(grid.active);
+  const nodes = [];
+  const nodeMap = new Map();
+
+  for (let row = 0; row < grid.count; row += 1) {
+    for (let column = 0; column < grid.count; column += 1) {
+      if (!grid.active[row][column]) continue;
+      const value = distance[row][column];
+      let isRidge = true;
+
+      for (let offsetRow = -1; offsetRow <= 1; offsetRow += 1) {
+        for (let offsetColumn = -1; offsetColumn <= 1; offsetColumn += 1) {
+          if (offsetRow === 0 && offsetColumn === 0) continue;
+          const neighborRow = row + offsetRow;
+          const neighborColumn = column + offsetColumn;
+          if (
+            neighborRow >= 0 &&
+            neighborColumn >= 0 &&
+            neighborRow < grid.count &&
+            neighborColumn < grid.count &&
+            distance[neighborRow][neighborColumn] > value
+          ) {
+            isRidge = false;
+          }
+        }
+      }
+
+      if (!isRidge) continue;
+      const cell = grid.cells[row * grid.count + column];
+      const node = {
+        row,
+        column,
+        distance: value,
+        coverage: cell.coverage,
+        x: cell.x + grid.cellSize / 2,
+        y: cell.y + grid.cellSize / 2,
+        degree: 0,
+      };
+      nodeMap.set(`${row}:${column}`, nodes.length);
+      nodes.push(node);
+    }
+  }
+
+  const edgeKeys = new Set();
+  const edges = [];
+  nodes.forEach((node, nodeIndex) => {
+    for (let radius = 1; radius <= 2; radius += 1) {
+      const candidates = [];
+      for (let offsetRow = -radius; offsetRow <= radius; offsetRow += 1) {
+        for (let offsetColumn = -radius; offsetColumn <= radius; offsetColumn += 1) {
+          if (Math.max(Math.abs(offsetRow), Math.abs(offsetColumn)) !== radius) continue;
+          const targetIndex = nodeMap.get(`${node.row + offsetRow}:${node.column + offsetColumn}`);
+          if (targetIndex !== undefined && targetIndex !== nodeIndex) candidates.push(targetIndex);
+        }
+      }
+      if (!candidates.length) continue;
+
+      candidates.slice(0, 2).forEach((targetIndex) => {
+        const key = [nodeIndex, targetIndex].sort((a, b) => a - b).join(":");
+        if (edgeKeys.has(key)) return;
+        edgeKeys.add(key);
+        edges.push({ from: nodeIndex, to: targetIndex });
+        nodes[nodeIndex].degree += 1;
+        nodes[targetIndex].degree += 1;
+      });
+      break;
+    }
+  });
+
+  const parent = nodes.map((_, index) => index);
+  function find(index) {
+    if (parent[index] !== index) parent[index] = find(parent[index]);
+    return parent[index];
+  }
+  function union(first, second) {
+    const firstRoot = find(first);
+    const secondRoot = find(second);
+    if (firstRoot !== secondRoot) parent[secondRoot] = firstRoot;
+  }
+  edges.forEach((edge) => union(edge.from, edge.to));
+
+  while (new Set(nodes.map((_, index) => find(index))).size > 1) {
+    let nearest = null;
+    for (let first = 0; first < nodes.length; first += 1) {
+      for (let second = first + 1; second < nodes.length; second += 1) {
+        if (find(first) === find(second)) continue;
+        const distanceBetween = Math.hypot(
+          nodes[first].x - nodes[second].x,
+          nodes[first].y - nodes[second].y
+        );
+        if (!nearest || distanceBetween < nearest.distance) {
+          nearest = { from: first, to: second, distance: distanceBetween };
+        }
+      }
+    }
+    if (!nearest) break;
+    edges.push({ from: nearest.from, to: nearest.to });
+    nodes[nearest.from].degree += 1;
+    nodes[nearest.to].degree += 1;
+    union(nearest.from, nearest.to);
+  }
+
+  return { ...grid, distance, nodes, edges };
+}
+
+function makePackedModules(state, pixels) {
+  const resolution = Math.max(8, Math.abs(state.density) * 6);
+  const grid = makeGlyphGrid(state, pixels, resolution);
+  const distance = makeDistanceField(grid.active);
+  const candidates = grid.cells
+    .filter((cell) => cell.active)
+    .map((cell) => {
+      const clearance = distance[cell.row][cell.column];
+      const radius =
+        Math.min(clearance * grid.cellSize * 0.82, grid.cellSize * 3.2) *
+          (state.rowWeight / 86) -
+        state.cellGap * 0.5;
+      return {
+        ...cell,
+        clearance,
+        radius,
+        centerX: cell.x + grid.cellSize / 2,
+        centerY: cell.y + grid.cellSize / 2,
+      };
+    })
+    .filter((candidate) => candidate.radius > 2)
+    .sort(
+      (first, second) =>
+        second.radius - first.radius ||
+        second.coverage - first.coverage ||
+        first.row - second.row ||
+        first.column - second.column
+    );
+  const modules = [];
+  const maximum = Math.max(1, Math.abs(state.sectors));
+
+  for (const candidate of candidates) {
+    if (modules.length >= maximum) break;
+    const overlaps = modules.some((module) => {
+      const distanceBetween = Math.hypot(
+        candidate.centerX - module.centerX,
+        candidate.centerY - module.centerY
+      );
+      return distanceBetween < candidate.radius + module.radius + state.cellGap;
+    });
+    if (overlaps) continue;
+
+    const grammar = ["circle", "square", "capsule"];
+    modules.push({
+      ...candidate,
+      shape:
+        grammar[
+          Math.abs(candidate.row * 7 + candidate.column * 11 + modules.length) % grammar.length
+        ],
+      angle: ((candidate.row * 17 + candidate.column * 11) % 90) - 45,
+    });
+  }
+
+  return { ...grid, distance, candidates, modules, maximum };
 }
 
 function makeSquareModules(state, pixels) {
@@ -591,23 +908,43 @@ function updateControlContext(state) {
   const isSquare = state.template === "square-kaleidoscope";
   const isCrest = state.template === "modular-crest";
   const isEmblem = state.template === "radial-emblem";
+  const isTectonics = state.template === "tectonics";
+  const isSkeleton = state.template === "skeleton";
+  const isPacking = state.template === "packing";
   const isSquareFamily = isSquare || isCrest;
   symmetryField.classList.toggle("is-hidden", !isSquareFamily);
-  densityField.classList.toggle("is-hidden", isSquareFamily);
-  rowWeightField.classList.toggle("is-hidden", isSquareFamily);
-  sectorsLabel.textContent = isSquareFamily
-    ? "Модули по стороне"
-    : isEmblem
-      ? "Лепестки"
-      : "Секторы";
-  densityLabel.textContent = isEmblem ? "Слои" : "Ряды";
-  rowWeightLabel.textContent = isEmblem ? "Размер модулей" : "Толщина рядов";
-  ringTwistLabel.textContent = isKaleidoscopeTemplate(state.template)
+  densityField.classList.toggle("is-hidden", isSquareFamily || isTectonics || isSkeleton);
+  rowWeightField.classList.toggle("is-hidden", isSquareFamily || isTectonics);
+
+  if (isSquareFamily) sectorsLabel.textContent = "Модули по стороне";
+  else if (isEmblem) sectorsLabel.textContent = "Лепестки";
+  else if (isTectonics) sectorsLabel.textContent = "Сетка анализа";
+  else if (isSkeleton) sectorsLabel.textContent = "Точность скелета";
+  else if (isPacking) sectorsLabel.textContent = "Максимум фигур";
+  else sectorsLabel.textContent = "Секторы";
+
+  densityLabel.textContent = isEmblem
+    ? "Слои"
+    : isPacking
+      ? "Точность упаковки"
+      : "Ряды";
+  rowWeightLabel.textContent = isEmblem
+    ? "Размер модулей"
+    : isSkeleton
+      ? "Толщина связей %"
+      : isPacking
+        ? "Масштаб фигур %"
+        : "Толщина рядов";
+  ringTwistLabel.textContent = usesRotatedGlyphSeed(state.template)
     ? "Поворот семени"
     : "Вращение рядов";
-  metricLabel.textContent = isKaleidoscopeTemplate(state.template)
-    ? "Модули: сетка / заполнено"
-    : "Ячейки: всего / после промежутков";
+
+  if (isTectonics) metricLabel.textContent = "Тектоника: ячейки / зоны";
+  else if (isSkeleton) metricLabel.textContent = "Скелет: узлы / связи";
+  else if (isPacking) metricLabel.textContent = "Упаковка: кандидаты / фигуры";
+  else if (isKaleidoscopeTemplate(state.template))
+    metricLabel.textContent = "Модули: сетка / заполнено";
+  else metricLabel.textContent = "Ячейки: всего / после промежутков";
 }
 
 function appendSquareModule(group, module, geometry, palette) {
@@ -870,6 +1207,228 @@ function renderRadialEmblem(state, palette, pixels) {
   }
 }
 
+function appendGlyphGridGuides(grid, palette) {
+  const guides = createSvgElement("g", {
+    fill: "none",
+    stroke: palette.guide,
+    "stroke-width": 1.2,
+    "data-layer": "grid",
+  });
+
+  grid.cells.forEach((cell) => {
+    guides.append(
+      createSvgElement("rect", {
+        x: formatNumber(cell.x),
+        y: formatNumber(cell.y),
+        width: formatNumber(cell.size),
+        height: formatNumber(cell.size),
+        "stroke-opacity": cell.active ? 1 : 0.35,
+      })
+    );
+  });
+  svg.append(guides);
+  svg.append(
+    createSvgElement("rect", {
+      x: grid.start,
+      y: grid.start,
+      width: grid.extent,
+      height: grid.extent,
+      fill: "none",
+      stroke: palette.guide,
+      "stroke-width": 2,
+      "data-layer": "boundary",
+    })
+  );
+}
+
+function renderTectonics(state, palette, pixels) {
+  const tectonics = makeTectonicZones(state, pixels);
+  const visibleZones = tectonics.zones.filter(
+    (zone) => zone.width - state.cellGap > 1 && zone.height - state.cellGap > 1
+  );
+  cellCountOutput.value = `${tectonics.activeCount} / ${visibleZones.length}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+
+  visibleZones.forEach((zone, index) => {
+    const inset = state.cellGap * 0.5;
+    const x = zone.x + inset;
+    const y = zone.y + inset;
+    const width = zone.width - state.cellGap;
+    const height = zone.height - state.cellGap;
+    const fill = getModuleFill(
+      {
+        seedRow: zone.row,
+        seedColumn: zone.column,
+        coverage: zone.coverage,
+        shape: zone.shape,
+      },
+      palette,
+      index
+    );
+    let shape;
+
+    if (zone.shape === "disc") {
+      shape = createSvgElement("ellipse", {
+        cx: formatNumber(x + width / 2),
+        cy: formatNumber(y + height / 2),
+        rx: formatNumber(width / 2),
+        ry: formatNumber(height / 2),
+        fill,
+      });
+    } else if (zone.shape === "capsule") {
+      shape = createSvgElement("rect", {
+        x: formatNumber(x),
+        y: formatNumber(y),
+        width: formatNumber(width),
+        height: formatNumber(height),
+        rx: formatNumber(Math.min(width, height) / 2),
+        fill,
+      });
+    } else if (zone.shape === "wedge") {
+      const cut = Math.min(width, height) * 0.28;
+      shape = createSvgElement("path", {
+        d: [
+          `M ${formatNumber(x + cut)} ${formatNumber(y)}`,
+          `L ${formatNumber(x + width)} ${formatNumber(y)}`,
+          `L ${formatNumber(x + width - cut)} ${formatNumber(y + height)}`,
+          `L ${formatNumber(x)} ${formatNumber(y + height)}`,
+          "Z",
+        ].join(" "),
+        fill,
+      });
+    } else {
+      shape = createSvgElement("rect", {
+        x: formatNumber(x),
+        y: formatNumber(y),
+        width: formatNumber(width),
+        height: formatNumber(height),
+        fill,
+      });
+    }
+
+    shape.setAttribute("data-shape", zone.shape);
+    shape.setAttribute("data-zone", index);
+    mark.append(shape);
+  });
+  svg.append(mark);
+  if (state.showGrid) appendGlyphGridGuides(tectonics, palette);
+}
+
+function renderSkeleton(state, palette, pixels) {
+  const skeleton = makeSkeletonGraph(state, pixels);
+  cellCountOutput.value = `${skeleton.nodes.length} / ${skeleton.edges.length}`;
+  const mark = createSvgElement("g", {
+    "data-layer": "mark",
+    transform: `translate(${CENTER} ${CENTER}) scale(1.35) translate(${-CENTER} ${-CENTER})`,
+  });
+  const strokeWidth = skeleton.cellSize * (state.rowWeight / 190);
+
+  if (strokeWidth > 0) {
+    skeleton.edges.forEach((edge, index) => {
+      const from = skeleton.nodes[edge.from];
+      const to = skeleton.nodes[edge.to];
+      mark.append(
+        createSvgElement("path", {
+          d: `M ${formatNumber(from.x)} ${formatNumber(from.y)} L ${formatNumber(to.x)} ${formatNumber(to.y)}`,
+          fill: "none",
+          stroke: palette.accents[index % palette.accents.length],
+          "stroke-width": formatNumber(strokeWidth),
+          "stroke-linecap": "round",
+          "data-shape": "link",
+        })
+      );
+    });
+  }
+
+  skeleton.nodes.forEach((node, index) => {
+    const radius =
+      skeleton.cellSize * (0.18 + Math.min(3, node.distance) * 0.07) - state.cellGap * 0.12;
+    if (radius <= 1) return;
+    const fill = palette.accents[(node.degree + index) % palette.accents.length];
+    let shape;
+
+    if (node.degree <= 1) {
+      shape = createSvgElement("path", {
+        d: diamondPathData({
+          x: node.x - radius,
+          y: node.y - radius,
+          size: radius * 2,
+        }),
+        fill,
+      });
+      shape.setAttribute("data-shape", "endpoint");
+    } else if (node.degree >= 3) {
+      shape = createSvgElement("circle", {
+        cx: formatNumber(node.x),
+        cy: formatNumber(node.y),
+        r: formatNumber(radius),
+        fill,
+      });
+      shape.setAttribute("data-shape", "junction");
+    } else {
+      shape = createSvgElement("rect", {
+        x: formatNumber(node.x - radius),
+        y: formatNumber(node.y - radius),
+        width: formatNumber(radius * 2),
+        height: formatNumber(radius * 2),
+        fill,
+        transform: `rotate(45 ${formatNumber(node.x)} ${formatNumber(node.y)})`,
+      });
+      shape.setAttribute("data-shape", "node");
+    }
+    mark.append(shape);
+  });
+
+  svg.append(mark);
+  if (state.showGrid) appendGlyphGridGuides(skeleton, palette);
+}
+
+function renderPacking(state, palette, pixels) {
+  const packing = makePackedModules(state, pixels);
+  cellCountOutput.value = `${packing.candidates.length} / ${packing.modules.length}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+
+  packing.modules.forEach((module, index) => {
+    const fill = palette.accents[index % palette.accents.length];
+    let shape;
+
+    if (module.shape === "square") {
+      shape = createSvgElement("rect", {
+        x: formatNumber(module.centerX - module.radius),
+        y: formatNumber(module.centerY - module.radius),
+        width: formatNumber(module.radius * 2),
+        height: formatNumber(module.radius * 2),
+        fill,
+        transform: `rotate(${formatNumber(module.angle)} ${formatNumber(module.centerX)} ${formatNumber(module.centerY)})`,
+      });
+    } else if (module.shape === "capsule") {
+      shape = createSvgElement("rect", {
+        x: formatNumber(module.centerX - module.radius * 1.25),
+        y: formatNumber(module.centerY - module.radius * 0.65),
+        width: formatNumber(module.radius * 2.5),
+        height: formatNumber(module.radius * 1.3),
+        rx: formatNumber(module.radius * 0.65),
+        fill,
+        transform: `rotate(${formatNumber(module.angle)} ${formatNumber(module.centerX)} ${formatNumber(module.centerY)})`,
+      });
+    } else {
+      shape = createSvgElement("circle", {
+        cx: formatNumber(module.centerX),
+        cy: formatNumber(module.centerY),
+        r: formatNumber(module.radius),
+        fill,
+      });
+    }
+
+    shape.setAttribute("data-shape", module.shape);
+    shape.setAttribute("data-pack-index", index);
+    mark.append(shape);
+  });
+
+  svg.append(mark);
+  if (state.showGrid) appendGlyphGridGuides(packing, palette);
+}
+
 function renderRadial(state, palette, pixels) {
   const cells = makeCells(state);
   const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
@@ -945,6 +1504,12 @@ function render() {
     renderRadialEmblem(state, palette, pixels);
   } else if (state.template === "modular-crest") {
     renderModularCrest(state, palette, pixels);
+  } else if (state.template === "tectonics") {
+    renderTectonics(state, palette, pixels);
+  } else if (state.template === "skeleton") {
+    renderSkeleton(state, palette, pixels);
+  } else if (state.template === "packing") {
+    renderPacking(state, palette, pixels);
   } else {
     renderRadial(state, palette, pixels);
   }
@@ -1002,11 +1567,96 @@ function downloadPng() {
   image.src = url;
 }
 
+const modeParameterKeys = [
+  "symmetry",
+  "sectors",
+  "density",
+  "rowWeight",
+  "cellGap",
+  "fillThreshold",
+  "ringTwist",
+];
+
+const modeDefaults = {
+  "square-kaleidoscope": {
+    symmetry: "8",
+    sectors: "10",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "12",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+  "radial-emblem": {
+    symmetry: "8",
+    sectors: "10",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "12",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+  "modular-crest": {
+    symmetry: "8",
+    sectors: "10",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "12",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+  tectonics: {
+    symmetry: "8",
+    sectors: "10",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "12",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+  skeleton: {
+    symmetry: "8",
+    sectors: "16",
+    density: "3",
+    rowWeight: "58",
+    cellGap: "8",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+  packing: {
+    symmetry: "8",
+    sectors: "10",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "12",
+    fillThreshold: "14",
+    ringTwist: "12",
+  },
+};
+
+function captureModeParameters() {
+  return Object.fromEntries(modeParameterKeys.map((key) => [key, inputs[key].value]));
+}
+
+function applyModeParameters(parameters) {
+  if (!parameters) return;
+  modeParameterKeys.forEach((key) => {
+    if (parameters[key] !== undefined) inputs[key].value = parameters[key];
+  });
+}
+
+const modeParameterStates = new Map();
+let activeTemplate = inputs.template.value;
+modeParameterStates.set(activeTemplate, captureModeParameters());
+
 function randomize() {
   const templates = [
     "square-kaleidoscope",
     "radial-emblem",
     "modular-crest",
+    "tectonics",
+    "skeleton",
+    "packing",
     "brick",
     "galaxy",
     "sunburst",
@@ -1017,10 +1667,15 @@ function randomize() {
     "rosette",
   ];
   inputs.template.value =
-    Math.random() < 0.55
-      ? ["square-kaleidoscope", "radial-emblem", "modular-crest"][
-          Math.floor(Math.random() * 3)
-        ]
+    Math.random() < 0.65
+      ? [
+          "square-kaleidoscope",
+          "radial-emblem",
+          "modular-crest",
+          "tectonics",
+          "skeleton",
+          "packing",
+        ][Math.floor(Math.random() * 6)]
       : templates[Math.floor(Math.random() * templates.length)];
   inputs.symmetry.value = Math.random() < 0.5 ? "4" : "8";
   inputs.sectors.value = String([4, 6, 8, 10, 12][Math.floor(Math.random() * 5)]);
@@ -1031,10 +1686,21 @@ function randomize() {
   inputs.cellGap.value = String(6 + Math.floor(Math.random() * 15));
   inputs.fillThreshold.value = String(10 + Math.floor(Math.random() * 16));
   inputs.ringTwist.value = String(-55 + Math.floor(Math.random() * 110));
+  activeTemplate = inputs.template.value;
+  modeParameterStates.set(activeTemplate, captureModeParameters());
   render();
 }
 
-Object.values(inputs).forEach((input) => input.addEventListener("input", render));
+Object.entries(inputs).forEach(([key, input]) => {
+  if (key !== "template") input.addEventListener("input", render);
+});
+
+inputs.template.addEventListener("change", () => {
+  modeParameterStates.set(activeTemplate, captureModeParameters());
+  activeTemplate = inputs.template.value;
+  applyModeParameters(modeParameterStates.get(activeTemplate) || modeDefaults[activeTemplate]);
+  render();
+});
 
 document.querySelectorAll(".swatch").forEach((button) => {
   button.addEventListener("click", () => {
@@ -1065,6 +1731,20 @@ document.querySelector("#downloadJsonButton").addEventListener("click", () => {
     cellCount = emblem.total;
     visibleCellCount =
       emblem.modules.filter((module) => module.size > 1).length + (emblem.core ? 1 : 0);
+  } else if (state.template === "tectonics") {
+    const tectonics = makeTectonicZones(state, drawSourceLetter(state));
+    cellCount = tectonics.activeCount;
+    visibleCellCount = tectonics.zones.filter(
+      (zone) => zone.width - state.cellGap > 1 && zone.height - state.cellGap > 1
+    ).length;
+  } else if (state.template === "skeleton") {
+    const skeleton = makeSkeletonGraph(state, drawSourceLetter(state));
+    cellCount = skeleton.nodes.length;
+    visibleCellCount = skeleton.edges.length;
+  } else if (state.template === "packing") {
+    const packing = makePackedModules(state, drawSourceLetter(state));
+    cellCount = packing.candidates.length;
+    visibleCellCount = packing.modules.length;
   } else {
     const cells = makeCells(state);
     cellCount = cells.length;

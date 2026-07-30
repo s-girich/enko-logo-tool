@@ -28,6 +28,10 @@
 - `Радиальная эмблема` repeats two glyph-derived tracks across petals and layers.
 - `Модульный герб` converts the square seed into larger axial and corner structures.
 - Preliminary visual testing favors `Модульный герб` for the best balance of abstraction, silhouette, and logo-like character.
+- `Тектоника`, `Скелет`, and `Упаковка` are the first deliberately asymmetric families.
+- They share one glyph coverage/distance analysis layer and use no reflection or random placement.
+- Preliminary asymmetric testing favors `Тектоника` for balance, `Упаковка` for abstraction, and `Скелет` for glyph structure.
+- Structural parameters are cached per template during comparison.
 
 ## Rolled Back
 

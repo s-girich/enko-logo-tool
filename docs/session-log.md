@@ -26,6 +26,13 @@
 - Compared all three modes on `Э` and `Ж`.
 - Verified radial repetition groups, SVG integrity, and mobile layout for all three modes.
 - Identified `Модульный герб` as the preliminary best balance; kept all modes for continued testing.
+- Added three asymmetric glyph-derived modes: `Тектоника`, `Скелет`, and `Упаковка`.
+- Added a shared coverage grid and distance field for non-radial analysis.
+- Added deterministic macro-zone merging for tectonic compositions.
+- Added connected skeleton graphs with endpoints, nodes, junctions, and shortest component links.
+- Added non-overlapping primitive packing driven by local glyph clearance.
+- Added per-template parameter memory and recommended skeleton defaults.
+- Compared asymmetric modes on `Э` and `Ж`; verified shape variety, SVG integrity, and parameter memory.
 - Improved cell classification from five probe points to a 5 x 9 area sample.
 - Made filled modules fully opaque for a cleaner canonical sign.
 - Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.

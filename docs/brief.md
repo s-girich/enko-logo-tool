@@ -39,6 +39,14 @@ Current preliminary balance:
 - `Радиальная эмблема` is the most expressive and decorative.
 - `Квадратный калейдоскоп` is the quietest and most systematic.
 
+Three asymmetric glyph-derived families are also available:
+
+- `Тектоника`: the strongest current asymmetric logo-like direction.
+- `Скелет`: the closest relationship to the internal construction of the glyph.
+- `Упаковка`: the freest and most abstract composition.
+
+Each mode remembers its own structural parameters while the user compares templates.
+
 ## Avoided Directions
 
 - Heavy raster slicing can look like shredded paper.
