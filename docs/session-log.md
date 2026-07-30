@@ -46,3 +46,14 @@
 - Explore alternate canonical grids that still derive from the source letter.
 - Add curated presets for good ENKO-style outputs.
 - Later, consider vector export once the visual system is stable.
+
+### Wrap-Up Notes
+
+- Clarified the git workflow:
+  - `commit` saves a project version locally;
+  - `push` sends saved commits to GitHub;
+  - uncommitted changes still exist in project files but are not recoverable as named git versions.
+- Established a lightweight documentation workflow:
+  - use `start` at the beginning of a new project session;
+  - use `finish` at the end to update documentation and git history.
+- Recommended continuing with GitHub Desktop for push when command-line authentication is not available, while learning terminal commands gradually.
