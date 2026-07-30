@@ -42,7 +42,9 @@
         <label class="field">
           <span>Сетка</span>
           <select id="templateSelect">
-            <option value="square-kaleidoscope" selected>Квадратный калейдоскоп</option>
+            <option value="square-kaleidoscope">Квадратный калейдоскоп</option>
+            <option value="radial-emblem">Радиальная эмблема</option>
+            <option value="modular-crest" selected>Модульный герб</option>
             <option value="brick">Кирпичная</option>
             <option value="galaxy">Галактика</option>
             <option value="sunburst">Лучевая</option>
@@ -79,12 +81,12 @@
           </label>
 
           <label class="field" id="densityField">
-            <span>Ряды</span>
+            <span id="densityLabel">Ряды</span>
             <input id="densityInput" type="number" step="1" value="3" />
           </label>
 
           <label class="field" id="rowWeightField">
-            <span>Толщина рядов</span>
+            <span id="rowWeightLabel">Толщина рядов</span>
             <input id="rowWeightInput" type="number" step="any" value="86" />
           </label>
 

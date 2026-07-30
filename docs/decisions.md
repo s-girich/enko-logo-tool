@@ -25,6 +25,9 @@
 - `Квадратный калейдоскоп` is the first experimental non-radial mode.
 - Its output is derived from a folded glyph seed and a fixed vector vocabulary: rectangles, circles, diamonds, and quarter circles.
 - Fourfold and eightfold symmetry are supported; symmetric modules share shape and color.
+- `Радиальная эмблема` repeats two glyph-derived tracks across petals and layers.
+- `Модульный герб` converts the square seed into larger axial and corner structures.
+- Preliminary visual testing favors `Модульный герб` for the best balance of abstraction, silhouette, and logo-like character.
 
 ## Rolled Back
 

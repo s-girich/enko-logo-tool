@@ -20,6 +20,12 @@
 - Added symmetric multicolor palettes for the square mode.
 - Added contextual controls so radial-only parameters are hidden in the square mode.
 - Verified mirrored shape/color pairs, the existing rosette, and the mobile layout.
+- Added `Радиальная эмблема` with glyph-driven tracks, petals, layers, and four radial primitives.
+- Added `Модульный герб` with horizontal/vertical bars, central diamonds, circles, and corner modules.
+- Connected gaps, scale, offset, threshold, and seed rotation across the three experimental families.
+- Compared all three modes on `Э` and `Ж`.
+- Verified radial repetition groups, SVG integrity, and mobile layout for all three modes.
+- Identified `Модульный герб` as the preliminary best balance; kept all modes for continued testing.
 - Improved cell classification from five probe points to a 5 x 9 area sample.
 - Made filled modules fully opaque for a cleaner canonical sign.
 - Set `Розетка`, 12 px gaps, and hidden grid as the default presentation.

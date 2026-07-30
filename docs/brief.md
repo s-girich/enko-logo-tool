@@ -27,12 +27,17 @@ The strongest direction is a modular, canonical graphic render:
 
 ## Current Experiment
 
-- `Template`: `Квадратный калейдоскоп`
-- `Symmetry`: eight reflections
-- `Modules`: 10 per side
-- `Seed rotation`: 12 degrees
-- Output vocabulary: rectangles, circles, diamonds, and quarter circles
-- Multicolor assignment remains deterministic and symmetric
+Three glyph-driven families are available for comparison:
+
+- `Квадратный калейдоскоп`: strict modular system with 4x/8x reflection.
+- `Радиальная эмблема`: expressive concentric repetition across petals and layers.
+- `Модульный герб`: large axial bars, central diamonds, circles, and corner modules.
+
+Current preliminary balance:
+
+- `Модульный герб` is the strongest logo-like direction.
+- `Радиальная эмблема` is the most expressive and decorative.
+- `Квадратный калейдоскоп` is the quietest and most systematic.
 
 ## Avoided Directions
 
