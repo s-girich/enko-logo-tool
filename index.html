@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ENKO Letter Prism</title>
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage" aria-label="Предпросмотр знака">
+        <div class="preview-shell">
+          <canvas
+            id="logoCanvas"
+            class="logo-canvas"
+            width="1000"
+            height="1000"
+            role="img"
+            aria-label="Сгенерированный знак"
+          ></canvas>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Параметры генератора">
+        <div class="brand-mark">ЭНКО. prism</div>
+
+        <label class="field">
+          <span>Буква</span>
+          <input id="letterInput" type="text" maxlength="1" value="Э" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>Шрифт</span>
+          <select id="fontSelect">
+            <option value="Arial Black, Arial, sans-serif">Плотный гротеск</option>
+            <option value="Arial Narrow, Arial, sans-serif">Узкий гротеск</option>
+            <option value="Georgia, serif">Контрастная антиква</option>
+            <option value="system-ui, sans-serif">Системный гротеск</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Сетка</span>
+          <select id="templateSelect">
+            <option value="brick">Кирпичная</option>
+            <option value="galaxy">Галактика</option>
+            <option value="sunburst">Лучевая</option>
+            <option value="mixed">Смешанная</option>
+            <option value="barcode">Штриховая</option>
+            <option value="pulse">Пульс</option>
+            <option value="burst">Из буквы</option>
+            <option value="rosette">Розетка</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Рендер</span>
+          <select id="renderModeSelect">
+            <option value="solid">Закрашивать ячейки</option>
+            <option value="raster">Растровые фрагменты</option>
+          </select>
+        </label>
+
+        <div class="control-grid">
+          <label class="field">
+            <span>Секторы</span>
+            <input id="sectorsInput" type="range" min="4" max="16" step="2" value="8" />
+            <output id="sectorsValue">8</output>
+          </label>
+
+          <label class="field">
+            <span>Масштаб</span>
+            <input id="scaleInput" type="range" min="34" max="92" value="62" />
+            <output id="scaleValue">62</output>
+          </label>
+
+          <label class="field">
+            <span>Смещение</span>
+            <input id="offsetInput" type="range" min="-220" max="220" value="104" />
+            <output id="offsetValue">104</output>
+          </label>
+
+          <label class="field">
+            <span>Преломление</span>
+            <input id="refractionInput" type="range" min="-80" max="80" value="22" />
+            <output id="refractionValue">22</output>
+          </label>
+
+          <label class="field">
+            <span>Ячейки</span>
+            <input id="densityInput" type="range" min="1" max="5" value="3" />
+            <output id="densityValue">3</output>
+          </label>
+
+          <label class="field">
+            <span>Толщина рядов</span>
+            <input id="rowWeightInput" type="range" min="55" max="140" value="86" />
+            <output id="rowWeightValue">86</output>
+          </label>
+
+          <label class="field">
+            <span>Промежутки</span>
+            <input id="cellGapInput" type="range" min="0" max="36" value="8" />
+            <output id="cellGapValue">8</output>
+          </label>
+
+          <label class="field">
+            <span>Порог заливки</span>
+            <input id="fillThresholdInput" type="range" min="1" max="80" value="14" />
+            <output id="fillThresholdValue">14</output>
+          </label>
+
+          <label class="field">
+            <span>Вращение рядов</span>
+            <input id="ringTwistInput" type="range" min="-90" max="90" value="28" />
+            <output id="ringTwistValue">28</output>
+          </label>
+
+          <label class="field">
+            <span>Смешивание</span>
+            <input id="recognitionInput" type="range" min="0" max="100" value="62" />
+            <output id="recognitionValue">62</output>
+          </label>
+        </div>
+
+        <label class="toggle">
+          <input id="gridToggle" type="checkbox" checked />
+          <span>Показывать сетку</span>
+        </label>
+
+        <fieldset class="swatches">
+          <legend>Цвет</legend>
+          <button class="swatch is-active" data-palette="navy" title="Синий ЭНКО"></button>
+          <button class="swatch swatch-dark" data-palette="ink" title="Черный"></button>
+          <button class="swatch swatch-light" data-palette="paper" title="Светлый"></button>
+        </fieldset>
+
+        <div class="actions">
+          <button id="randomButton" type="button">Вариант</button>
+          <button id="downloadPngButton" type="button">PNG</button>
+          <button id="downloadJsonButton" type="button">JSON</button>
+        </div>
+      </aside>
+    </main>
+
+    <script src="src/app.js"></script>
+  </body>
+</html>
