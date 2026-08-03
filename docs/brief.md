@@ -17,13 +17,16 @@ The design idea: take a letter as source material and transform it through a rad
 
 ## Current Best Direction
 
-The strongest direction is a modular, canonical graphic render:
+The current strategic direction favors symmetric, logo-like systems derived from `Радиальная эмблема` and `Квадратный калейдоскоп`.
 
-- `Template`: `Розетка`
+- `Priority`: radial repetition and 4x/8x square reflection
+- `Letter sensitivity`: coverage, stroke depth, counterforms, and radial intersection profiles
 - `Render`: vector solid cells
 - `Cell gaps`: 8-18
 - `Fill threshold`: 10-24
 - `Grid`: off for final sign, on for debugging
+
+`Розетка` remains the stable baseline. The strongest new refinement candidate is `Морфокалейдоскоп`; `Герб-мандала` is the main hybrid candidate.
 
 ## Current Experiment
 
@@ -38,6 +41,14 @@ Current preliminary balance:
 - `Модульный герб` is the strongest logo-like direction.
 - `Радиальная эмблема` is the most expressive and decorative.
 - `Квадратный калейдоскоп` is the quietest and most systematic.
+
+Three high-symmetry hybrids increase sensitivity to the source letter:
+
+- `Радиальный отпечаток`: ray-intersection profiles control repeated radial modules.
+- `Морфокалейдоскоп`: reflected module orbits respond to stroke depth, direction, and counterforms.
+- `Герб-мандала`: a morph-kaleidoscope core is joined to a radial fingerprint perimeter.
+
+The first comparison across `Э`, `А`, `Ж`, and `О` favors `Морфокалейдоскоп` for compact logo character. `Радиальный отпечаток` is the most expressive, while `Герб-мандала` has the richest hybrid structure and needs continued tuning of the relationship between core and perimeter.
 
 Three asymmetric glyph-derived families are also available:
 

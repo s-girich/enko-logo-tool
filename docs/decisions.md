@@ -32,6 +32,11 @@
 - They share one glyph coverage/distance analysis layer and use no reflection or random placement.
 - Preliminary asymmetric testing favors `Тектоника` for balance, `Упаковка` for abstraction, and `Скелет` for glyph structure.
 - Structural parameters are cached per template during comparison.
+- The next exploration priority is symmetric, logo-like development around radial emblems and square kaleidoscopes.
+- Letter sensitivity should use a shared multichannel analysis rather than only binary cell coverage.
+- The shared analysis includes stroke depth, local direction, enclosed counterforms, and radial intersection profiles.
+- `Радиальный отпечаток`, `Морфокалейдоскоп`, and `Герб-мандала` are the first hybrid families built on that analysis.
+- Symmetry remains structural: radial modules repeat by petal count, while square modules remain in 4x/8x reflection orbits.
 
 ## Rolled Back
 

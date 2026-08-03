@@ -58,7 +58,14 @@ const palettes = {
 let currentPalette = "navy";
 
 function isKaleidoscopeTemplate(template) {
-  return ["square-kaleidoscope", "radial-emblem", "modular-crest"].includes(template);
+  return [
+    "square-kaleidoscope",
+    "radial-emblem",
+    "modular-crest",
+    "radial-fingerprint",
+    "morph-kaleidoscope",
+    "crest-mandala",
+  ].includes(template);
 }
 
 function isAsymmetricTemplate(template) {
@@ -1061,6 +1068,265 @@ function makeRadialEmblem(state, pixels) {
   };
 }
 
+function makeGlyphFeatureField(state, pixels, countOverride) {
+  const count = Math.min(32, Math.max(4, Math.abs(Math.round(countOverride))));
+  const grid = makeGlyphGrid(state, pixels, count);
+  const distance = makeDistanceField(grid.active);
+  const outside = Array.from({ length: count }, () => Array(count).fill(false));
+  const queue = [];
+
+  function addOutside(row, column) {
+    if (
+      row < 0 ||
+      column < 0 ||
+      row >= count ||
+      column >= count ||
+      grid.active[row][column] ||
+      outside[row][column]
+    ) {
+      return;
+    }
+    outside[row][column] = true;
+    queue.push([row, column]);
+  }
+
+  for (let index = 0; index < count; index += 1) {
+    addOutside(0, index);
+    addOutside(count - 1, index);
+    addOutside(index, 0);
+    addOutside(index, count - 1);
+  }
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const [row, column] = queue[cursor];
+    addOutside(row - 1, column);
+    addOutside(row + 1, column);
+    addOutside(row, column - 1);
+    addOutside(row, column + 1);
+  }
+
+  function coverageAt(row, column) {
+    if (row < 0 || column < 0 || row >= count || column >= count) return 0;
+    return grid.cells[row * count + column].coverage;
+  }
+
+  const features = grid.cells.map((cell) => {
+    const scores = [
+      coverageAt(cell.row, cell.column - 1) + coverageAt(cell.row, cell.column + 1),
+      coverageAt(cell.row - 1, cell.column) + coverageAt(cell.row + 1, cell.column),
+      coverageAt(cell.row - 1, cell.column - 1) + coverageAt(cell.row + 1, cell.column + 1),
+      coverageAt(cell.row - 1, cell.column + 1) + coverageAt(cell.row + 1, cell.column - 1),
+    ];
+    const direction = scores.indexOf(Math.max(...scores));
+    return {
+      ...cell,
+      depth: distance[cell.row][cell.column],
+      counterform: !cell.active && !outside[cell.row][cell.column],
+      direction,
+      directionStrength: Math.max(...scores),
+    };
+  });
+
+  return {
+    ...grid,
+    distance,
+    outside,
+    features,
+    featureAt(row, column) {
+      return features[row * count + column];
+    },
+  };
+}
+
+function sampleRadialGlyphDescriptor(angle, state, pixels) {
+  const samples = 64;
+  const innerRadius = 22;
+  const outerRadius = 360;
+  const threshold = Math.max(0.08, state.fillThreshold / 100);
+  const values = [];
+  let transitions = 0;
+  let filled = 0;
+  let first = -1;
+  let last = -1;
+  let previous = false;
+
+  for (let index = 0; index < samples; index += 1) {
+    const ratio = index / (samples - 1);
+    const point = polar(innerRadius + ratio * (outerRadius - innerRadius), angle);
+    const active = samplePixelAlpha(point.x, point.y, pixels) >= threshold;
+    values.push(active);
+    if (active) {
+      filled += 1;
+      if (first < 0) first = index;
+      last = index;
+    }
+    if (active !== previous) transitions += 1;
+    previous = active;
+  }
+  if (previous) transitions += 1;
+
+  return {
+    angle,
+    transitions,
+    coverage: filled / samples,
+    first: first < 0 ? 1 : first / (samples - 1),
+    last: last < 0 ? 0 : last / (samples - 1),
+    span: first < 0 ? 0 : (last - first + 1) / samples,
+    segmentCount: Math.ceil(transitions / 2),
+    values,
+  };
+}
+
+function makeRadialFingerprint(state, pixels, options = {}) {
+  const petals = Math.max(4, Math.abs(state.sectors));
+  const layers = Math.max(1, Math.abs(state.density));
+  const innerRadius = options.innerRadius ?? 72;
+  const radialExtent = options.radialExtent ?? 310;
+  const tracks = options.tracks ?? 1;
+  const layerStep = radialExtent / layers;
+  const slotCount = layers * tracks;
+  const descriptors = Array.from({ length: slotCount }, (_, slot) => {
+    const ratio = slotCount === 1 ? 0.5 : slot / (slotCount - 1);
+    return sampleRadialGlyphDescriptor(12 + ratio * 156, state, pixels);
+  });
+  const modules = [];
+  const weight = Math.min(1.45, Math.max(0.25, Math.abs(state.rowWeight) / 86));
+
+  descriptors.forEach((descriptor, slot) => {
+    if (descriptor.transitions === 0) return;
+    const layer = Math.floor(slot / tracks);
+    const track = slot % tracks;
+    const wedge = 360 / petals;
+    const radius = innerRadius + (layer + 0.54) * layerStep;
+    const size =
+      layerStep * (0.3 + Math.min(0.82, descriptor.coverage * 1.7)) * weight -
+      state.cellGap;
+    const length =
+      layerStep * (0.62 + descriptor.span * 1.15) * weight - state.cellGap * 0.45;
+    const shape =
+      descriptor.segmentCount >= 2
+        ? "ring"
+        : descriptor.coverage > 0.42
+          ? "bar"
+          : descriptor.first > 0.34
+            ? "diamond"
+            : "petal";
+
+    for (let petal = 0; petal < petals; petal += 1) {
+      const angle = petal * wedge + (track - (tracks - 1) / 2) * wedge * 0.28;
+      const point = polar(radius, angle);
+      modules.push({
+        layer,
+        track,
+        petal,
+        angle,
+        x: point.x,
+        y: point.y,
+        size,
+        length,
+        shape,
+        coverage: descriptor.coverage,
+        span: descriptor.span,
+        transitions: descriptor.transitions,
+        seedRow: layer,
+        seedColumn: track,
+      });
+    }
+  });
+
+  return {
+    petals,
+    layers,
+    tracks,
+    innerRadius,
+    radialExtent,
+    layerStep,
+    descriptors,
+    modules,
+    total: petals * slotCount,
+  };
+}
+
+function makeMorphKaleidoscope(state, pixels) {
+  const count = Math.min(24, Math.max(4, Math.abs(state.sectors)));
+  const field = makeGlyphFeatureField(state, pixels, count);
+  const modules = [];
+  const last = count - 1;
+  const levels = Math.max(1, Math.abs(state.density));
+  const threshold = state.fillThreshold / 100;
+
+  for (let row = 0; row < count; row += 1) {
+    for (let column = 0; column < count; column += 1) {
+      const coordinates = [
+        [row, column],
+        [row, last - column],
+        [last - row, column],
+        [last - row, last - column],
+      ];
+      if (state.symmetry === 8) {
+        coordinates.push(
+          [column, row],
+          [last - column, row],
+          [column, last - row],
+          [last - column, last - row]
+        );
+      }
+      const uniqueCoordinates = [...new Set(coordinates.map(([r, c]) => `${r}:${c}`))]
+        .map((key) => key.split(":").map(Number))
+        .sort(([rowA, columnA], [rowB, columnB]) => rowA - rowB || columnA - columnB);
+      const samples = uniqueCoordinates.map(([sampleRow, sampleColumn]) =>
+        field.featureAt(sampleRow, sampleColumn)
+      );
+      const maxCoverage = Math.max(...samples.map((sample) => sample.coverage));
+      const activeSamples = samples.filter((sample) => sample.active);
+      const counterSamples = samples.filter((sample) => sample.counterform);
+      if (maxCoverage < threshold && counterSamples.length === 0) continue;
+
+      const maxDepth = Math.max(0, ...activeSamples.map((sample) => sample.depth));
+      const directionCounts = [0, 0, 0, 0];
+      activeSamples.forEach((sample) => {
+        directionCounts[sample.direction] += 1;
+      });
+      const dominantDirection = directionCounts.indexOf(Math.max(...directionCounts));
+      const signature = samples.reduce(
+        (value, sample, index) => value + (sample.active ? 2 ** index : 0),
+        0
+      );
+      const stage = Math.min(levels - 1, Math.max(0, maxDepth - 1));
+      const centerX = field.start + (column + 0.5) * field.cellSize;
+      const centerY = field.start + (row + 0.5) * field.cellSize;
+      const radialAngle = (Math.atan2(centerY - CENTER, centerX - CENTER) * 180) / Math.PI;
+      let shape;
+      if (counterSamples.length) shape = "ring";
+      else if (maxDepth >= levels) shape = signature % 2 ? "circle" : "diamond";
+      else if (dominantDirection <= 1) shape = signature % 2 ? "radial-bar" : "tangent-bar";
+      else shape = signature % 3 ? "diamond" : "circle";
+
+      modules.push({
+        row,
+        column,
+        seedRow: Math.floor(Math.abs(row - last / 2)),
+        seedColumn: Math.floor(Math.abs(column - last / 2)),
+        x: field.start + column * field.cellSize,
+        y: field.start + row * field.cellSize,
+        size: field.cellSize,
+        centerX,
+        centerY,
+        radialAngle,
+        shape,
+        stage,
+        signature,
+        maxDepth,
+        coverage: activeSamples.length
+          ? activeSamples.reduce((sum, sample) => sum + sample.coverage, 0) /
+            activeSamples.length
+          : 0,
+      });
+    }
+  }
+
+  return { ...field, modules, total: count * count, levels };
+}
+
 function appendRadialModule(group, module, palette) {
   if (module.size <= 1) return;
   const shapeIndex = ["circle", "diamond", "petal", "bar"].indexOf(module.shape);
@@ -1115,6 +1381,125 @@ function appendRadialModule(group, module, palette) {
   group.append(shape);
 }
 
+function appendFingerprintModule(group, module, palette) {
+  if (module.size <= 1 || module.length <= 1) return;
+  const fill =
+    palette.accents[
+      (module.layer * 2 + module.track + module.transitions) % palette.accents.length
+    ];
+  const item = createSvgElement("g", {
+    "data-shape": module.shape,
+    "data-layer-index": module.layer,
+    "data-petal": module.petal,
+    "data-transitions": module.transitions,
+  });
+
+  if (module.shape === "ring") {
+    const radius = Math.max(module.size, module.length * 0.62) / 2;
+    item.append(
+      createSvgElement("circle", {
+        cx: formatNumber(module.x),
+        cy: formatNumber(module.y),
+        r: formatNumber(radius),
+        fill,
+      }),
+      createSvgElement("circle", {
+        cx: formatNumber(module.x),
+        cy: formatNumber(module.y),
+        r: formatNumber(radius * (0.3 + module.coverage * 0.22)),
+        fill: palette.background,
+      })
+    );
+  } else if (module.shape === "bar") {
+    item.append(
+      createSvgElement("rect", {
+        x: formatNumber(module.x - module.size * 0.28),
+        y: formatNumber(module.y - module.length / 2),
+        width: formatNumber(module.size * 0.56),
+        height: formatNumber(module.length),
+        fill,
+        transform: `rotate(${formatNumber(module.angle)} ${formatNumber(module.x)} ${formatNumber(module.y)})`,
+      })
+    );
+  } else if (module.shape === "diamond") {
+    const size = Math.min(module.length, module.size * 1.15);
+    item.append(
+      createSvgElement("path", {
+        d: diamondPathData({ x: module.x - size / 2, y: module.y - size / 2, size }),
+        fill,
+      })
+    );
+  } else {
+    item.append(
+      createSvgElement("ellipse", {
+        cx: formatNumber(module.x),
+        cy: formatNumber(module.y),
+        rx: formatNumber(module.size * 0.34),
+        ry: formatNumber(module.length * 0.5),
+        fill,
+        transform: `rotate(${formatNumber(module.angle)} ${formatNumber(module.x)} ${formatNumber(module.y)})`,
+      })
+    );
+  }
+  group.append(item);
+}
+
+function appendMorphModule(group, module, geometry, morph, state, palette) {
+  if (!geometry) return;
+  const weight = Math.min(1.35, Math.max(0.3, Math.abs(state.rowWeight) / 86));
+  const stageScale = 0.62 + ((module.stage + 1) / (morph.levels + 1)) * 0.34;
+  const size = geometry.size * stageScale * weight;
+  if (size <= 1) return;
+  const centerX = geometry.x + geometry.size / 2;
+  const centerY = geometry.y + geometry.size / 2;
+  const x = centerX - size / 2;
+  const y = centerY - size / 2;
+  const fill =
+    palette.accents[(module.stage * 2 + module.signature) % palette.accents.length];
+  const item = createSvgElement("g", {
+    "data-shape": module.shape,
+    "data-stage": module.stage,
+    "data-signature": module.signature,
+  });
+
+  if (module.shape === "ring") {
+    item.append(
+      createSvgElement("rect", { x, y, width: size, height: size, fill }),
+      createSvgElement("rect", {
+        x: formatNumber(x + size * 0.28),
+        y: formatNumber(y + size * 0.28),
+        width: formatNumber(size * 0.44),
+        height: formatNumber(size * 0.44),
+        fill: palette.background,
+      })
+    );
+  } else if (module.shape === "radial-bar" || module.shape === "tangent-bar") {
+    const angle = module.radialAngle + (module.shape === "tangent-bar" ? 90 : 0);
+    item.append(
+      createSvgElement("rect", {
+        x: formatNumber(centerX - size * 0.68),
+        y: formatNumber(centerY - size * 0.22),
+        width: formatNumber(size * 1.36),
+        height: formatNumber(size * 0.44),
+        fill,
+        transform: `rotate(${formatNumber(angle)} ${formatNumber(centerX)} ${formatNumber(centerY)})`,
+      })
+    );
+  } else if (module.shape === "circle") {
+    item.append(
+      createSvgElement("circle", {
+        cx: formatNumber(centerX),
+        cy: formatNumber(centerY),
+        r: formatNumber(size / 2),
+        fill,
+      })
+    );
+  } else {
+    item.append(createSvgElement("path", { d: diamondPathData({ x, y, size }), fill }));
+  }
+  group.append(item);
+}
+
 function createSvgElement(name, attributes = {}) {
   const element = document.createElementNS(SVG_NS, name);
   Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
@@ -1132,8 +1517,12 @@ function updateControlContext(state) {
   const isIsolines = state.template === "isolines";
   const isMatrix = state.template === "matrix";
   const isCrystal = state.template === "crystal";
+  const isFingerprint = state.template === "radial-fingerprint";
+  const isMorph = state.template === "morph-kaleidoscope";
+  const isMandala = state.template === "crest-mandala";
   const isSquareFamily = isSquare || isCrest;
-  symmetryField.classList.toggle("is-hidden", !isSquareFamily);
+  const hasReflectionControl = isSquareFamily || isMorph || isMandala;
+  symmetryField.classList.toggle("is-hidden", !hasReflectionControl);
   densityField.classList.toggle("is-hidden", isSquareFamily || isTectonics || isSkeleton);
   rowWeightField.classList.toggle("is-hidden", isSquareFamily || isTectonics);
 
@@ -1146,6 +1535,9 @@ function updateControlContext(state) {
   else if (isIsolines) sectorsLabel.textContent = "Точность контура";
   else if (isMatrix) sectorsLabel.textContent = "Сетка вырезов";
   else if (isCrystal) sectorsLabel.textContent = "Грани по стороне";
+  else if (isFingerprint) sectorsLabel.textContent = "Лепестки";
+  else if (isMorph) sectorsLabel.textContent = "Модули по стороне";
+  else if (isMandala) sectorsLabel.textContent = "Лепестки и модули";
   else sectorsLabel.textContent = "Секторы";
 
   densityLabel.textContent = isEmblem
@@ -1158,6 +1550,8 @@ function updateControlContext(state) {
           ? "Максимум вырезов"
           : isCrystal
             ? "Неровность сетки"
+            : isFingerprint || isMorph || isMandala
+              ? "Слои анализа"
       : "Ряды";
   rowWeightLabel.textContent = isEmblem
     ? "Размер модулей"
@@ -1173,6 +1567,12 @@ function updateControlContext(state) {
               ? "Размер вырезов %"
               : isCrystal
                 ? "Масштаб граней %"
+                : isFingerprint
+                  ? "Размер отпечатка %"
+                  : isMorph
+                    ? "Масштаб модулей %"
+                    : isMandala
+                      ? "Баланс частей %"
         : "Толщина рядов";
   ringTwistLabel.textContent = usesRotatedGlyphSeed(state.template)
     ? "Поворот семени"
@@ -1185,6 +1585,9 @@ function updateControlContext(state) {
   else if (isIsolines) metricLabel.textContent = "Изолинии: ячейки / контуры";
   else if (isMatrix) metricLabel.textContent = "Матрица: зоны / вырезы";
   else if (isCrystal) metricLabel.textContent = "Кристалл: сетка / грани";
+  else if (isFingerprint) metricLabel.textContent = "Отпечаток: позиции / модули";
+  else if (isMorph) metricLabel.textContent = "Морфология: сетка / модули";
+  else if (isMandala) metricLabel.textContent = "Мандала: позиции / модули";
   else if (isKaleidoscopeTemplate(state.template))
     metricLabel.textContent = "Модули: сетка / заполнено";
   else metricLabel.textContent = "Ячейки: всего / после промежутков";
@@ -1447,6 +1850,146 @@ function renderRadialEmblem(state, palette, pixels) {
         "data-layer": "boundary",
       })
     );
+  }
+}
+
+function appendFingerprintGuides(fingerprint, palette) {
+  const grid = createSvgElement("g", {
+    fill: "none",
+    stroke: palette.guide,
+    "stroke-width": 1.2,
+    "data-layer": "grid",
+  });
+  for (let layer = 0; layer < fingerprint.layers; layer += 1) {
+    grid.append(
+      createSvgElement("circle", {
+        cx: CENTER,
+        cy: CENTER,
+        r: formatNumber(
+          fingerprint.innerRadius + (layer + 0.54) * fingerprint.layerStep
+        ),
+      })
+    );
+  }
+  for (let petal = 0; petal < fingerprint.petals; petal += 1) {
+    const point = polar(
+      fingerprint.innerRadius + fingerprint.radialExtent,
+      petal * (360 / fingerprint.petals)
+    );
+    grid.append(
+      createSvgElement("path", {
+        d: `M ${CENTER} ${CENTER} L ${formatNumber(point.x)} ${formatNumber(point.y)}`,
+      })
+    );
+  }
+  svg.append(grid);
+}
+
+function renderRadialFingerprint(state, palette, pixels) {
+  const fingerprint = makeRadialFingerprint(state, pixels);
+  const visibleModules = fingerprint.modules.filter(
+    (module) => module.size > 1 && module.length > 1
+  );
+  cellCountOutput.value = `${fingerprint.total} / ${visibleModules.length}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+  visibleModules.forEach((module) => appendFingerprintModule(mark, module, palette));
+  svg.append(mark);
+  if (state.showGrid) appendFingerprintGuides(fingerprint, palette);
+}
+
+function appendMorphGridGuides(morph, palette, transform = "") {
+  const grid = createSvgElement("g", {
+    fill: "none",
+    stroke: palette.guide,
+    "stroke-width": 1.2,
+    "data-layer": "grid",
+    transform,
+  });
+  for (let row = 0; row < morph.count; row += 1) {
+    for (let column = 0; column < morph.count; column += 1) {
+      grid.append(
+        createSvgElement("rect", {
+          x: formatNumber(morph.start + column * morph.cellSize),
+          y: formatNumber(morph.start + row * morph.cellSize),
+          width: formatNumber(morph.cellSize),
+          height: formatNumber(morph.cellSize),
+        })
+      );
+    }
+  }
+  svg.append(grid);
+}
+
+function renderMorphKaleidoscope(state, palette, pixels) {
+  const morph = makeMorphKaleidoscope(state, pixels);
+  const renderable = morph.modules.filter((module) =>
+    getSquareGeometry(module, state.cellGap)
+  );
+  cellCountOutput.value = `${morph.total} / ${renderable.length}`;
+  const mark = createSvgElement("g", {
+    "data-layer": "mark",
+    transform: `translate(${CENTER} ${CENTER}) scale(1.16) translate(${-CENTER} ${-CENTER})`,
+  });
+  renderable.forEach((module) => {
+    appendMorphModule(
+      mark,
+      module,
+      getSquareGeometry(module, state.cellGap),
+      morph,
+      state,
+      palette
+    );
+  });
+  svg.append(mark);
+  if (state.showGrid) {
+    appendMorphGridGuides(
+      morph,
+      palette,
+      `translate(${CENTER} ${CENTER}) scale(1.16) translate(${-CENTER} ${-CENTER})`
+    );
+  }
+}
+
+function renderCrestMandala(state, palette, pixels) {
+  const morph = makeMorphKaleidoscope(state, pixels);
+  const fingerprint = makeRadialFingerprint(state, pixels, {
+    innerRadius: 188,
+    radialExtent: 202,
+    tracks: 1,
+  });
+  const morphModules = morph.modules.filter((module) =>
+    getSquareGeometry(module, state.cellGap * 1.15)
+  );
+  const radialModules = fingerprint.modules.filter(
+    (module) => module.size > 1 && module.length > 1
+  );
+  cellCountOutput.value = `${morph.total + fingerprint.total} / ${morphModules.length + radialModules.length}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+  const inner = createSvgElement("g", {
+    transform: `translate(${CENTER} ${CENTER}) scale(0.72) translate(${-CENTER} ${-CENTER})`,
+    "data-part": "square-core",
+  });
+  morphModules.forEach((module) => {
+    appendMorphModule(
+      inner,
+      module,
+      getSquareGeometry(module, state.cellGap * 1.15),
+      morph,
+      state,
+      palette
+    );
+  });
+  mark.append(inner);
+  radialModules.forEach((module) => appendFingerprintModule(mark, module, palette));
+  svg.append(mark);
+
+  if (state.showGrid) {
+    appendMorphGridGuides(
+      morph,
+      palette,
+      `translate(${CENTER} ${CENTER}) scale(0.72) translate(${-CENTER} ${-CENTER})`
+    );
+    appendFingerprintGuides(fingerprint, palette);
   }
 }
 
@@ -1887,10 +2430,14 @@ function render() {
   svg.setAttribute("data-template", state.template);
   svg.setAttribute(
     "data-symmetry",
-    state.template === "radial-emblem"
+    ["radial-emblem", "radial-fingerprint"].includes(state.template)
       ? `radial-${state.sectors}`
-      : ["square-kaleidoscope", "modular-crest"].includes(state.template)
+      : ["square-kaleidoscope", "modular-crest", "morph-kaleidoscope"].includes(
+            state.template
+          )
         ? state.symmetry
+        : state.template === "crest-mandala"
+          ? `mandala-${state.sectors}-${state.symmetry}`
         : 0
   );
   svg.replaceChildren();
@@ -1908,6 +2455,12 @@ function render() {
     renderRadialEmblem(state, palette, pixels);
   } else if (state.template === "modular-crest") {
     renderModularCrest(state, palette, pixels);
+  } else if (state.template === "radial-fingerprint") {
+    renderRadialFingerprint(state, palette, pixels);
+  } else if (state.template === "morph-kaleidoscope") {
+    renderMorphKaleidoscope(state, palette, pixels);
+  } else if (state.template === "crest-mandala") {
+    renderCrestMandala(state, palette, pixels);
   } else if (state.template === "tectonics") {
     renderTectonics(state, palette, pixels);
   } else if (state.template === "skeleton") {
@@ -2017,6 +2570,33 @@ const modeDefaults = {
     fillThreshold: "14",
     ringTwist: "12",
   },
+  "radial-fingerprint": {
+    symmetry: "8",
+    sectors: "10",
+    density: "4",
+    rowWeight: "88",
+    cellGap: "10",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
+  "morph-kaleidoscope": {
+    symmetry: "8",
+    sectors: "10",
+    density: "4",
+    rowWeight: "80",
+    cellGap: "10",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
+  "crest-mandala": {
+    symmetry: "8",
+    sectors: "8",
+    density: "3",
+    rowWeight: "76",
+    cellGap: "10",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
   tectonics: {
     symmetry: "8",
     sectors: "10",
@@ -2102,6 +2682,9 @@ function randomize() {
     "square-kaleidoscope",
     "radial-emblem",
     "modular-crest",
+    "radial-fingerprint",
+    "morph-kaleidoscope",
+    "crest-mandala",
     "tectonics",
     "skeleton",
     "packing",
@@ -2122,6 +2705,9 @@ function randomize() {
     "square-kaleidoscope",
     "radial-emblem",
     "modular-crest",
+    "radial-fingerprint",
+    "morph-kaleidoscope",
+    "crest-mandala",
     "tectonics",
     "skeleton",
     "packing",
@@ -2188,6 +2774,32 @@ document.querySelector("#downloadJsonButton").addEventListener("click", () => {
     cellCount = emblem.total;
     visibleCellCount =
       emblem.modules.filter((module) => module.size > 1).length + (emblem.core ? 1 : 0);
+  } else if (state.template === "radial-fingerprint") {
+    const fingerprint = makeRadialFingerprint(state, drawSourceLetter(state));
+    cellCount = fingerprint.total;
+    visibleCellCount = fingerprint.modules.filter(
+      (module) => module.size > 1 && module.length > 1
+    ).length;
+  } else if (state.template === "morph-kaleidoscope") {
+    const morph = makeMorphKaleidoscope(state, drawSourceLetter(state));
+    cellCount = morph.total;
+    visibleCellCount = morph.modules.filter((module) =>
+      getSquareGeometry(module, state.cellGap)
+    ).length;
+  } else if (state.template === "crest-mandala") {
+    const pixels = drawSourceLetter(state);
+    const morph = makeMorphKaleidoscope(state, pixels);
+    const fingerprint = makeRadialFingerprint(state, pixels, {
+      innerRadius: 188,
+      radialExtent: 202,
+      tracks: 1,
+    });
+    cellCount = morph.total + fingerprint.total;
+    visibleCellCount =
+      morph.modules.filter((module) =>
+        getSquareGeometry(module, state.cellGap * 1.15)
+      ).length +
+      fingerprint.modules.filter((module) => module.size > 1 && module.length > 1).length;
   } else if (state.template === "tectonics") {
     const tectonics = makeTectonicZones(state, drawSourceLetter(state));
     cellCount = tectonics.activeCount;

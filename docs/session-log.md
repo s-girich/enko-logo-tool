@@ -9,6 +9,11 @@
 - Tuned `Арматура` so directional bars dominate and junction markers act as accents.
 - Compared all four families on `Э`, `А`, `Ж`, and `R`.
 - Verified non-empty SVG output, responsive one-column layout, and a clean browser console.
+- Shifted the exploration priority toward symmetric radial and square logo families.
+- Added `Радиальный отпечаток`, `Морфокалейдоскоп`, and `Герб-мандала`.
+- Added a shared feature analysis for stroke depth, local direction, enclosed counterforms, and radial intersection profiles.
+- Reduced the radial fingerprint to one track per layer and tightened the mandala core/perimeter relationship after visual testing.
+- Compared all three hybrid modes on `Э`, `А`, `Ж`, and `О`; verified radial repetition and 4x/8x orbit symmetry.
 
 ### Current State
 
@@ -17,6 +22,9 @@
 - `Изолинии` produces a clear topographic contour family.
 - `Арматура` exposes the construction of the letter through colored directional bars.
 - All four modes still use the hidden glyph mask and export vector SVG geometry.
+- `Морфокалейдоскоп` is the strongest new compact logo candidate.
+- `Радиальный отпечаток` has the clearest expressive radial character.
+- `Герб-мандала` successfully combines both grammars but remains the most complex composition.
 
 ### Next Ideas
 
@@ -24,6 +32,9 @@
 - Test reduced two- or three-color palettes for `Арматура` and `Кристалл`.
 - Explore direct glyph-path parsing for smoother `Изолинии` and more accurate stroke analysis.
 - Add named presets once the strongest parameter ranges are established.
+- Tune two- and three-color palettes for the three symmetric hybrids.
+- Build a comparison board for radial and square candidates across the full target alphabet.
+- Continue simplifying the mandala perimeter and test stronger core/perimeter alignment.
 
 ## 2026-07-31
 
