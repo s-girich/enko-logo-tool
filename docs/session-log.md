@@ -1,5 +1,30 @@
 # Session Log
 
+## 2026-08-03
+
+### Done
+
+- Added four deterministic letter-seed generator families: `Арматура`, `Изолинии`, `Матрица`, and `Кристалл`.
+- Added contextual control labels, per-template defaults, random-mode participation, live metrics, and JSON counts for all four families.
+- Tuned `Арматура` so directional bars dominate and junction markers act as accents.
+- Compared all four families on `Э`, `А`, `Ж`, and `R`.
+- Verified non-empty SVG output, responsive one-column layout, and a clean browser console.
+
+### Current State
+
+- `Матрица` gives the most compact and minimal new signs through negative cutouts.
+- `Кристалл` gives the strongest free-form emblem character.
+- `Изолинии` produces a clear topographic contour family.
+- `Арматура` exposes the construction of the letter through colored directional bars.
+- All four modes still use the hidden glyph mask and export vector SVG geometry.
+
+### Next Ideas
+
+- Compare the four new modes across a larger letter board and select one or two for deeper tuning.
+- Test reduced two- or three-color palettes for `Арматура` and `Кристалл`.
+- Explore direct glyph-path parsing for smoother `Изолинии` and more accurate stroke analysis.
+- Add named presets once the strongest parameter ranges are established.
+
 ## 2026-07-31
 
 ### Done

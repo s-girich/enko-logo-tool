@@ -45,6 +45,15 @@ Three asymmetric glyph-derived families are also available:
 - `Скелет`: the closest relationship to the internal construction of the glyph.
 - `Упаковка`: the freest and most abstract composition.
 
+Four additional glyph-seed experiments extend the generator beyond reflection, graphs, and packing:
+
+- `Арматура`: directional bars and junction markers inferred from local stroke structure.
+- `Изолинии`: nested erosion contours derived from the glyph distance field.
+- `Матрица`: a compact geometric base with glyph-derived negative cutouts.
+- `Кристалл`: a deterministic irregular triangle mesh filtered by glyph coverage.
+
+The first visual pass makes `Матрица` and `Кристалл` the strongest new emblem-like candidates. `Изолинии` is the clearest contour-driven family, while `Арматура` remains the most literal and constructional.
+
 Each mode remembers its own structural parameters while the user compares templates.
 
 ## Avoided Directions
