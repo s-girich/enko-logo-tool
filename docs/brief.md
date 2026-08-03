@@ -26,7 +26,7 @@ The current strategic direction favors symmetric, logo-like systems derived from
 - `Fill threshold`: 10-24
 - `Grid`: off for final sign, on for debugging
 
-`Розетка` remains the stable baseline. The strongest new refinement candidate is `Морфокалейдоскоп`; `Герб-мандала` is the main hybrid candidate.
+`Розетка` remains the stable baseline. The strongest refinement candidates are `Морфокалейдоскоп`, `Орбитальная грамматика`, and `Топологический герб`.
 
 ## Current Experiment
 
@@ -50,20 +50,21 @@ Three high-symmetry hybrids increase sensitivity to the source letter:
 
 The first comparison across `Э`, `А`, `Ж`, and `О` favors `Морфокалейдоскоп` for compact logo character. `Радиальный отпечаток` is the most expressive, while `Герб-мандала` has the richest hybrid structure and needs continued tuning of the relationship between core and perimeter.
 
+Three additional symmetric families push letter sensitivity further:
+
+- `Контрформный калейдоскоп`: distinguishes glyph mass, enclosed voids, and bridges inside reflected orbits.
+- `Орбитальная грамматика`: turns selected local glyph features into strict 4x/8x module orbits.
+- `Топологический герб`: maps connected components, counterforms, and dominant stroke direction into a compact radial crest.
+
 Three asymmetric glyph-derived families are also available:
 
 - `Тектоника`: the strongest current asymmetric logo-like direction.
 - `Скелет`: the closest relationship to the internal construction of the glyph.
 - `Упаковка`: the freest and most abstract composition.
 
-Four additional glyph-seed experiments extend the generator beyond reflection, graphs, and packing:
+`Арматура` remains as the constructional glyph-seed experiment. `Изолинии`, `Матрица`, and `Кристалл` were removed from the active interface to keep the generator focused on symmetric, logo-like systems.
 
-- `Арматура`: directional bars and junction markers inferred from local stroke structure.
-- `Изолинии`: nested erosion contours derived from the glyph distance field.
-- `Матрица`: a compact geometric base with glyph-derived negative cutouts.
-- `Кристалл`: a deterministic irregular triangle mesh filtered by glyph coverage.
-
-The first visual pass makes `Матрица` and `Кристалл` the strongest new emblem-like candidates. `Изолинии` is the clearest contour-driven family, while `Арматура` remains the most literal and constructional.
+Monochrome can be enabled independently of the selected palette. It collapses all positive modules to one foreground color while preserving the background and negative apertures. The canvas stays fixed to the viewport; only the controls panel scrolls.
 
 Each mode remembers its own structural parameters while the user compares templates.
 

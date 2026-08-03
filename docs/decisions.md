@@ -37,6 +37,10 @@
 - The shared analysis includes stroke depth, local direction, enclosed counterforms, and radial intersection profiles.
 - `Радиальный отпечаток`, `Морфокалейдоскоп`, and `Герб-мандала` are the first hybrid families built on that analysis.
 - Symmetry remains structural: radial modules repeat by petal count, while square modules remain in 4x/8x reflection orbits.
+- `Контрформный калейдоскоп`, `Орбитальная грамматика`, and `Топологический герб` extend the symmetric family with explicit void roles, selected feature orbits, and whole-glyph topology.
+- `Изолинии`, `Матрица`, and `Кристалл` were removed from the active interface to concentrate the tool on radial emblems and square kaleidoscopes.
+- Monochrome is an independent display/export option: positive modules use one foreground color while the background and negative apertures remain intact.
+- The preview workspace is fixed to the viewport; only the controls panel scrolls on desktop and mobile.
 
 ## Rolled Back
 

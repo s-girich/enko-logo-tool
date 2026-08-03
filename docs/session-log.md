@@ -14,23 +14,27 @@
 - Added a shared feature analysis for stroke depth, local direction, enclosed counterforms, and radial intersection profiles.
 - Reduced the radial fingerprint to one track per layer and tightened the mandala core/perimeter relationship after visual testing.
 - Compared all three hybrid modes on `Э`, `А`, `Ж`, and `О`; verified radial repetition and 4x/8x orbit symmetry.
+- Added `Контрформный калейдоскоп`, `Орбитальная грамматика`, and `Топологический герб` as three further letter-sensitive symmetric families.
+- Added a `Монохром` option that preserves negative apertures while collapsing positive modules to one foreground color.
+- Removed `Изолинии`, `Матрица`, and `Кристалл` from the active generator.
+- Fixed the preview workspace to the viewport so only the controls panel scrolls.
 
 ### Current State
 
-- `Матрица` gives the most compact and minimal new signs through negative cutouts.
-- `Кристалл` gives the strongest free-form emblem character.
-- `Изолинии` produces a clear topographic contour family.
 - `Арматура` exposes the construction of the letter through colored directional bars.
-- All four modes still use the hidden glyph mask and export vector SVG geometry.
 - `Морфокалейдоскоп` is the strongest new compact logo candidate.
 - `Радиальный отпечаток` has the clearest expressive radial character.
 - `Герб-мандала` successfully combines both grammars but remains the most complex composition.
+- `Контрформный калейдоскоп` makes enclosed voids an explicit part of the module grammar.
+- `Орбитальная грамматика` produces compact signs from a small set of distinctive glyph features.
+- `Топологический герб` gives the most restrained radial silhouette of the newest group.
+- All active modes use the hidden glyph mask and export vector SVG geometry in color or monochrome.
 
 ### Next Ideas
 
-- Compare the four new modes across a larger letter board and select one or two for deeper tuning.
-- Test reduced two- or three-color palettes for `Арматура` and `Кристалл`.
-- Explore direct glyph-path parsing for smoother `Изолинии` and more accurate stroke analysis.
+- Compare the three newest symmetric modes across a larger letter board and select one or two for deeper tuning.
+- Test monochrome silhouettes across the full target alphabet.
+- Explore direct glyph-path parsing for more accurate stroke and counterform analysis.
 - Add named presets once the strongest parameter ranges are established.
 - Tune two- and three-color palettes for the three symmetric hybrids.
 - Build a comparison board for radial and square candidates across the full target alphabet.

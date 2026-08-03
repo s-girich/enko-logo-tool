@@ -32,6 +32,7 @@ const inputs = {
   fillThreshold: document.querySelector("#fillThresholdInput"),
   ringTwist: document.querySelector("#ringTwistInput"),
   showGrid: document.querySelector("#gridToggle"),
+  monochrome: document.querySelector("#monochromeToggle"),
 };
 
 const palettes = {
@@ -65,19 +66,14 @@ function isKaleidoscopeTemplate(template) {
     "radial-fingerprint",
     "morph-kaleidoscope",
     "crest-mandala",
+    "counterform-kaleidoscope",
+    "orbital-grammar",
+    "topological-crest",
   ].includes(template);
 }
 
 function isAsymmetricTemplate(template) {
-  return [
-    "tectonics",
-    "skeleton",
-    "packing",
-    "armature",
-    "isolines",
-    "matrix",
-    "crystal",
-  ].includes(template);
+  return ["tectonics", "skeleton", "packing", "armature"].includes(template);
 }
 
 function usesRotatedGlyphSeed(template) {
@@ -106,6 +102,7 @@ function readState() {
     fillThreshold: readNumber(inputs.fillThreshold, 14),
     ringTwist: readNumber(inputs.ringTwist, 12),
     showGrid: inputs.showGrid.checked,
+    monochrome: inputs.monochrome.checked,
     palette: currentPalette,
   };
 }
@@ -702,154 +699,10 @@ function makeArmatureModules(state, pixels) {
   return { ...grid, distance, modules };
 }
 
-function makeIsolineBands(state, pixels) {
-  const resolution = Math.min(52, Math.max(14, Math.abs(state.sectors) * 2));
-  const grid = makeGlyphGrid(state, pixels, resolution);
-  const distance = makeDistanceField(grid.active);
-  const maxDistance = Math.max(0, ...distance.flat());
-  const requestedLevels = Math.max(1, Math.abs(state.density));
-  const levelCount = Math.min(maxDistance, requestedLevels);
-  const thresholds = Array.from({ length: levelCount }, (_, index) =>
-    Math.max(1, Math.round(1 + (index * Math.max(0, maxDistance - 1)) / Math.max(1, levelCount - 1)))
-  ).filter((value, index, values) => values.indexOf(value) === index);
-  const bands = thresholds.map((threshold) => {
-    const segments = [];
-    let edgeCount = 0;
-    for (let row = 0; row < grid.count; row += 1) {
-      for (let column = 0; column < grid.count; column += 1) {
-        if (distance[row][column] < threshold) continue;
-        const x = grid.start + column * grid.cellSize;
-        const y = grid.start + row * grid.cellSize;
-        const right = x + grid.cellSize;
-        const bottom = y + grid.cellSize;
-        const neighbors = [
-          [row - 1, column, `M ${formatNumber(x)} ${formatNumber(y)} L ${formatNumber(right)} ${formatNumber(y)}`],
-          [row, column + 1, `M ${formatNumber(right)} ${formatNumber(y)} L ${formatNumber(right)} ${formatNumber(bottom)}`],
-          [row + 1, column, `M ${formatNumber(right)} ${formatNumber(bottom)} L ${formatNumber(x)} ${formatNumber(bottom)}`],
-          [row, column - 1, `M ${formatNumber(x)} ${formatNumber(bottom)} L ${formatNumber(x)} ${formatNumber(y)}`],
-        ];
-        neighbors.forEach(([neighborRow, neighborColumn, path]) => {
-          if ((distance[neighborRow]?.[neighborColumn] || 0) < threshold) {
-            segments.push(path);
-            edgeCount += 1;
-          }
-        });
-      }
-    }
-    return { threshold, d: segments.join(" "), edgeCount };
-  });
-
-  return {
-    ...grid,
-    distance,
-    bands,
-    maxDistance,
-    activeCount: grid.cells.filter((cell) => cell.active).length,
-  };
-}
-
-function makeMatrixStencil(state, pixels) {
-  const grid = makeTectonicZones(state, pixels);
-  const maximum = Math.max(1, Math.abs(state.density));
-  const cuts = [...grid.zones]
-    .sort(
-      (first, second) =>
-        second.rows * second.columns - first.rows * first.columns ||
-        second.coverage - first.coverage ||
-        first.row - second.row ||
-        first.column - second.column
-    )
-    .slice(0, maximum)
-    .sort((first, second) => first.row - second.row || first.column - second.column);
-  const shapeIndex =
-    Math.abs(state.letter.codePointAt(0) + Math.round(state.ringTwist / 12)) % 3;
-  return {
-    ...grid,
-    cuts,
-    maximum,
-    baseShape: ["square", "circle", "diamond"][shapeIndex],
-  };
-}
-
 function samplePixelAlpha(x, y, pixels) {
   const safeX = Math.max(0, Math.min(SIZE - 1, Math.round(x)));
   const safeY = Math.max(0, Math.min(SIZE - 1, Math.round(y)));
   return pixels[(safeY * SIZE + safeX) * 4 + 3] / 255;
-}
-
-function makeCrystalMesh(state, pixels) {
-  const count = Math.min(28, Math.max(4, Math.abs(state.sectors)));
-  const extent = 700;
-  const start = (SIZE - extent) / 2;
-  const step = extent / count;
-  const jitter = Math.min(0.34, Math.abs(state.density) * 0.035) * step;
-  const seed = state.letter.codePointAt(0);
-  const points = Array.from({ length: count + 1 }, (_, row) =>
-    Array.from({ length: count + 1 }, (_, column) => {
-      const boundary = row === 0 || column === 0 || row === count || column === count;
-      const hash = Math.sin((row + 1) * 127.1 + (column + 1) * 311.7 + seed * 0.17);
-      const crossHash = Math.cos((row + 1) * 269.5 + (column + 1) * 183.3 + seed * 0.11);
-      return {
-        x: start + column * step + (boundary ? 0 : hash * jitter),
-        y: start + row * step + (boundary ? 0 : crossHash * jitter),
-      };
-    })
-  );
-  const allTriangles = [];
-  const triangles = [];
-  const threshold = state.fillThreshold / 100;
-
-  function addTriangle(first, second, third, row, column, index) {
-    const vertices = [first, second, third];
-    const center = vertices.reduce(
-      (result, point) => ({ x: result.x + point.x / 3, y: result.y + point.y / 3 }),
-      { x: 0, y: 0 }
-    );
-    const samples = [
-      center,
-      ...vertices.map((point, vertexIndex) => ({
-        x: (point.x + vertices[(vertexIndex + 1) % 3].x) / 2,
-        y: (point.y + vertices[(vertexIndex + 1) % 3].y) / 2,
-      })),
-    ];
-    const coverage =
-      samples.reduce((sum, point) => sum + samplePixelAlpha(point.x, point.y, pixels), 0) /
-      samples.length;
-    const triangle = { vertices, center, coverage, row, column, index };
-    allTriangles.push(triangle);
-    if (coverage >= threshold) triangles.push(triangle);
-  }
-
-  for (let row = 0; row < count; row += 1) {
-    for (let column = 0; column < count; column += 1) {
-      const topLeft = points[row][column];
-      const topRight = points[row][column + 1];
-      const bottomLeft = points[row + 1][column];
-      const bottomRight = points[row + 1][column + 1];
-      if ((row + column + seed) % 2 === 0) {
-        addTriangle(topLeft, topRight, bottomRight, row, column, 0);
-        addTriangle(topLeft, bottomRight, bottomLeft, row, column, 1);
-      } else {
-        addTriangle(topLeft, topRight, bottomLeft, row, column, 0);
-        addTriangle(topRight, bottomRight, bottomLeft, row, column, 1);
-      }
-    }
-  }
-
-  return { count, extent, start, step, allTriangles, triangles };
-}
-
-function trianglePathData(triangle, scale = 1) {
-  const vertices = triangle.vertices.map((point) => ({
-    x: triangle.center.x + (point.x - triangle.center.x) * scale,
-    y: triangle.center.y + (point.y - triangle.center.y) * scale,
-  }));
-  return [
-    `M ${formatNumber(vertices[0].x)} ${formatNumber(vertices[0].y)}`,
-    `L ${formatNumber(vertices[1].x)} ${formatNumber(vertices[1].y)}`,
-    `L ${formatNumber(vertices[2].x)} ${formatNumber(vertices[2].y)}`,
-    "Z",
-  ].join(" ");
 }
 
 function makeSquareModules(state, pixels) {
@@ -1132,6 +985,7 @@ function makeGlyphFeatureField(state, pixels, countOverride) {
     outside,
     features,
     featureAt(row, column) {
+      if (row < 0 || column < 0 || row >= count || column >= count) return undefined;
       return features[row * count + column];
     },
   };
@@ -1327,6 +1181,214 @@ function makeMorphKaleidoscope(state, pixels) {
   return { ...field, modules, total: count * count, levels };
 }
 
+function makeCounterformKaleidoscope(state, pixels) {
+  const morph = makeMorphKaleidoscope(state, pixels);
+  const modules = morph.modules.map((module) => ({
+    ...module,
+    counterRole:
+      module.shape === "ring"
+        ? "void"
+        : module.maxDepth >= morph.levels
+          ? "mass"
+          : "bridge",
+  }));
+  return { ...morph, modules };
+}
+
+function makeSymmetryOrbit(dx, dy, symmetry) {
+  const points = [
+    [dx, dy],
+    [-dx, dy],
+    [dx, -dy],
+    [-dx, -dy],
+  ];
+  if (symmetry === 8) {
+    points.push([dy, dx], [-dy, dx], [dy, -dx], [-dy, -dx]);
+  }
+  return [...new Set(points.map(([x, y]) => `${formatNumber(x)}:${formatNumber(y)}`))].map(
+    (key) => key.split(":").map(Number)
+  );
+}
+
+function makeOrbitalGrammar(state, pixels) {
+  const count = Math.min(24, Math.max(6, Math.abs(state.sectors)));
+  const field = makeGlyphFeatureField(state, pixels, count);
+  const centerIndex = (count - 1) / 2;
+  const maximumSeeds = Math.max(1, Math.abs(state.density) * 2);
+  const candidates = field.features
+    .filter((feature) => {
+      const dx = feature.column - centerIndex;
+      const dy = feature.row - centerIndex;
+      if (dx < 0 || dy < 0) return false;
+      if (state.symmetry === 8 && dy > dx) return false;
+      return feature.active || feature.counterform;
+    })
+    .map((feature) => ({
+      ...feature,
+      score:
+        feature.coverage +
+        Math.min(feature.depth, 4) * 0.18 +
+        (feature.counterform ? 0.9 : 0),
+    }))
+    .sort(
+      (first, second) =>
+        second.score - first.score || first.row - second.row || first.column - second.column
+    )
+    .slice(0, maximumSeeds);
+  const modules = [];
+  const weight = Math.min(1.4, Math.max(0.3, Math.abs(state.rowWeight) / 86));
+
+  candidates.forEach((candidate, orbitIndex) => {
+    const sourceX = candidate.x + field.cellSize / 2;
+    const sourceY = candidate.y + field.cellSize / 2;
+    const orbit = makeSymmetryOrbit(sourceX - CENTER, sourceY - CENTER, state.symmetry);
+    const shape = candidate.counterform
+      ? "ring"
+      : candidate.depth >= Math.max(2, Math.abs(state.density))
+        ? "circle"
+        : candidate.direction <= 1
+          ? "bar"
+          : "diamond";
+    const size =
+      field.cellSize * (0.58 + Math.min(candidate.depth, 3) * 0.16) * weight -
+      state.cellGap;
+
+    orbit.forEach(([dx, dy], orbitPosition) => {
+      modules.push({
+        orbitIndex,
+        orbitPosition,
+        x: CENTER + dx,
+        y: CENTER + dy,
+        angle: (Math.atan2(dy, dx) * 180) / Math.PI + 90,
+        size,
+        length: size * (1.15 + candidate.score * 0.24),
+        shape,
+        coverage: candidate.coverage,
+        transitions: candidate.counterform ? 4 : candidate.direction + 1,
+        layer: orbitIndex,
+        track: 0,
+        petal: orbitPosition,
+      });
+    });
+  });
+
+  return { ...field, candidates, modules, maximumSeeds };
+}
+
+function countFeatureComponents(field, predicate) {
+  const visited = Array.from({ length: field.count }, () => Array(field.count).fill(false));
+  let components = 0;
+
+  for (let row = 0; row < field.count; row += 1) {
+    for (let column = 0; column < field.count; column += 1) {
+      if (visited[row][column] || !predicate(field.featureAt(row, column))) continue;
+      components += 1;
+      const queue = [[row, column]];
+      visited[row][column] = true;
+      for (let cursor = 0; cursor < queue.length; cursor += 1) {
+        const [currentRow, currentColumn] = queue[cursor];
+        [
+          [currentRow - 1, currentColumn],
+          [currentRow + 1, currentColumn],
+          [currentRow, currentColumn - 1],
+          [currentRow, currentColumn + 1],
+        ].forEach(([nextRow, nextColumn]) => {
+          if (
+            nextRow < 0 ||
+            nextColumn < 0 ||
+            nextRow >= field.count ||
+            nextColumn >= field.count ||
+            visited[nextRow][nextColumn] ||
+            !predicate(field.featureAt(nextRow, nextColumn))
+          ) {
+            return;
+          }
+          visited[nextRow][nextColumn] = true;
+          queue.push([nextRow, nextColumn]);
+        });
+      }
+    }
+  }
+  return components;
+}
+
+function makeTopologicalCrest(state, pixels) {
+  const resolution = Math.min(24, Math.max(8, Math.abs(state.sectors) + 4));
+  const field = makeGlyphFeatureField(state, pixels, resolution);
+  const activeFeatures = field.features.filter((feature) => feature.active);
+  const componentCount = countFeatureComponents(field, (feature) => feature.active);
+  const counterCount = countFeatureComponents(field, (feature) => feature.counterform);
+  const directionCounts = [0, 0, 0, 0];
+  activeFeatures.forEach((feature) => {
+    directionCounts[feature.direction] += 1;
+  });
+  const dominantDirection = directionCounts.indexOf(Math.max(...directionCounts));
+  const edgeCount = activeFeatures.filter((feature) => {
+    const neighbors = [
+      field.featureAt(feature.row - 1, feature.column),
+      field.featureAt(feature.row + 1, feature.column),
+      field.featureAt(feature.row, feature.column - 1),
+      field.featureAt(feature.row, feature.column + 1),
+    ].filter(Boolean);
+    return neighbors.filter((neighbor) => neighbor.active).length <= 2;
+  }).length;
+  const petals = Math.max(4, Math.abs(state.sectors));
+  const weight = Math.min(1.35, Math.max(0.3, Math.abs(state.rowWeight) / 86));
+  const modules = [];
+  const layerSpecs = [
+    {
+      radius: 84,
+      size: (42 + counterCount * 5) * weight - state.cellGap * 0.35,
+      length: (52 + counterCount * 7) * weight,
+      shape: counterCount ? "ring" : "diamond",
+      signal: counterCount + 1,
+    },
+    {
+      radius: 196,
+      size: (48 + Math.min(componentCount, 4) * 5) * weight - state.cellGap * 0.35,
+      length: (92 + Math.min(activeFeatures.length, 80) * 0.8) * weight,
+      shape: dominantDirection <= 1 ? "bar" : "petal",
+      signal: dominantDirection + 1,
+    },
+    {
+      radius: 318,
+      size: (44 + Math.min(edgeCount, 12) * 1.5) * weight - state.cellGap * 0.35,
+      length: (58 + (edgeCount % 7) * 7) * weight,
+      shape: edgeCount % 3 === 0 ? "diamond" : edgeCount % 3 === 1 ? "petal" : "ring",
+      signal: edgeCount + componentCount,
+    },
+  ];
+
+  layerSpecs.forEach((spec, layer) => {
+    for (let petal = 0; petal < petals; petal += 1) {
+      const angle = petal * (360 / petals);
+      const point = polar(spec.radius, angle);
+      modules.push({
+        ...spec,
+        layer,
+        track: 0,
+        petal,
+        angle,
+        x: point.x,
+        y: point.y,
+        coverage: activeFeatures.length / (field.count * field.count),
+        transitions: spec.signal,
+      });
+    }
+  });
+
+  return {
+    ...field,
+    modules,
+    petals,
+    componentCount,
+    counterCount,
+    edgeCount,
+    dominantDirection,
+    total: petals * layerSpecs.length,
+  };
+}
+
 function appendRadialModule(group, module, palette) {
   if (module.size <= 1) return;
   const shapeIndex = ["circle", "diamond", "petal", "bar"].indexOf(module.shape);
@@ -1514,14 +1576,15 @@ function updateControlContext(state) {
   const isSkeleton = state.template === "skeleton";
   const isPacking = state.template === "packing";
   const isArmature = state.template === "armature";
-  const isIsolines = state.template === "isolines";
-  const isMatrix = state.template === "matrix";
-  const isCrystal = state.template === "crystal";
   const isFingerprint = state.template === "radial-fingerprint";
   const isMorph = state.template === "morph-kaleidoscope";
   const isMandala = state.template === "crest-mandala";
+  const isCounterform = state.template === "counterform-kaleidoscope";
+  const isOrbital = state.template === "orbital-grammar";
+  const isTopological = state.template === "topological-crest";
   const isSquareFamily = isSquare || isCrest;
-  const hasReflectionControl = isSquareFamily || isMorph || isMandala;
+  const hasReflectionControl =
+    isSquareFamily || isMorph || isMandala || isCounterform || isOrbital;
   symmetryField.classList.toggle("is-hidden", !hasReflectionControl);
   densityField.classList.toggle("is-hidden", isSquareFamily || isTectonics || isSkeleton);
   rowWeightField.classList.toggle("is-hidden", isSquareFamily || isTectonics);
@@ -1532,26 +1595,26 @@ function updateControlContext(state) {
   else if (isSkeleton) sectorsLabel.textContent = "Точность скелета";
   else if (isPacking) sectorsLabel.textContent = "Максимум фигур";
   else if (isArmature) sectorsLabel.textContent = "Точность штрихов";
-  else if (isIsolines) sectorsLabel.textContent = "Точность контура";
-  else if (isMatrix) sectorsLabel.textContent = "Сетка вырезов";
-  else if (isCrystal) sectorsLabel.textContent = "Грани по стороне";
   else if (isFingerprint) sectorsLabel.textContent = "Лепестки";
   else if (isMorph) sectorsLabel.textContent = "Модули по стороне";
   else if (isMandala) sectorsLabel.textContent = "Лепестки и модули";
+  else if (isCounterform) sectorsLabel.textContent = "Модули по стороне";
+  else if (isOrbital) sectorsLabel.textContent = "Точность орбит";
+  else if (isTopological) sectorsLabel.textContent = "Оси герба";
   else sectorsLabel.textContent = "Секторы";
 
   densityLabel.textContent = isEmblem
     ? "Слои"
     : isPacking
       ? "Точность упаковки"
-      : isIsolines
-        ? "Уровни"
-        : isMatrix
-          ? "Максимум вырезов"
-          : isCrystal
-            ? "Неровность сетки"
-            : isFingerprint || isMorph || isMandala
+      : isFingerprint || isMorph || isMandala
               ? "Слои анализа"
+              : isCounterform
+                ? "Уровни контрформы"
+                : isOrbital
+                  ? "Орбиты-семена"
+                  : isTopological
+                    ? "Чувствительность"
       : "Ряды";
   rowWeightLabel.textContent = isEmblem
     ? "Размер модулей"
@@ -1561,18 +1624,18 @@ function updateControlContext(state) {
         ? "Масштаб фигур %"
         : isArmature
           ? "Толщина штрихов %"
-          : isIsolines
-            ? "Толщина линий %"
-            : isMatrix
-              ? "Размер вырезов %"
-              : isCrystal
-                ? "Масштаб граней %"
-                : isFingerprint
+          : isFingerprint
                   ? "Размер отпечатка %"
                   : isMorph
                     ? "Масштаб модулей %"
                     : isMandala
                       ? "Баланс частей %"
+                      : isCounterform
+                        ? "Масштаб контрформ %"
+                        : isOrbital
+                          ? "Масштаб орбит %"
+                          : isTopological
+                            ? "Масштаб герба %"
         : "Толщина рядов";
   ringTwistLabel.textContent = usesRotatedGlyphSeed(state.template)
     ? "Поворот семени"
@@ -1582,12 +1645,12 @@ function updateControlContext(state) {
   else if (isSkeleton) metricLabel.textContent = "Скелет: узлы / связи";
   else if (isPacking) metricLabel.textContent = "Упаковка: кандидаты / фигуры";
   else if (isArmature) metricLabel.textContent = "Арматура: ячейки / штрихи";
-  else if (isIsolines) metricLabel.textContent = "Изолинии: ячейки / контуры";
-  else if (isMatrix) metricLabel.textContent = "Матрица: зоны / вырезы";
-  else if (isCrystal) metricLabel.textContent = "Кристалл: сетка / грани";
   else if (isFingerprint) metricLabel.textContent = "Отпечаток: позиции / модули";
   else if (isMorph) metricLabel.textContent = "Морфология: сетка / модули";
   else if (isMandala) metricLabel.textContent = "Мандала: позиции / модули";
+  else if (isCounterform) metricLabel.textContent = "Контрформа: модули / пустоты";
+  else if (isOrbital) metricLabel.textContent = "Орбиты: семена / модули";
+  else if (isTopological) metricLabel.textContent = "Топология: признаки / модули";
   else if (isKaleidoscopeTemplate(state.template))
     metricLabel.textContent = "Модули: сетка / заполнено";
   else metricLabel.textContent = "Ячейки: всего / после промежутков";
@@ -1993,6 +2056,99 @@ function renderCrestMandala(state, palette, pixels) {
   }
 }
 
+function renderCounterformKaleidoscope(state, palette, pixels) {
+  const counterform = makeCounterformKaleidoscope(state, pixels);
+  const renderable = counterform.modules.filter((module) =>
+    getSquareGeometry(module, state.cellGap)
+  );
+  const voidCount = renderable.filter((module) => module.counterRole === "void").length;
+  cellCountOutput.value = `${renderable.length} / ${voidCount}`;
+  const mark = createSvgElement("g", {
+    "data-layer": "mark",
+    transform: `translate(${CENTER} ${CENTER}) scale(1.14) translate(${-CENTER} ${-CENTER})`,
+  });
+  renderable.forEach((module) => {
+    let shape = module.shape;
+    let stage = module.stage;
+    if (module.counterRole === "void") {
+      shape = "ring";
+      stage = counterform.levels - 1;
+    } else if (module.counterRole === "mass") {
+      shape = module.signature % 2 ? "circle" : "diamond";
+    } else {
+      shape = module.signature % 2 ? "radial-bar" : "tangent-bar";
+    }
+    appendMorphModule(
+      mark,
+      { ...module, shape, stage },
+      getSquareGeometry(module, state.cellGap),
+      counterform,
+      state,
+      palette
+    );
+  });
+  svg.append(mark);
+  if (state.showGrid) {
+    appendMorphGridGuides(
+      counterform,
+      palette,
+      `translate(${CENTER} ${CENTER}) scale(1.14) translate(${-CENTER} ${-CENTER})`
+    );
+  }
+}
+
+function renderOrbitalGrammar(state, palette, pixels) {
+  const orbital = makeOrbitalGrammar(state, pixels);
+  const visibleModules = orbital.modules.filter(
+    (module) => module.size > 1 && module.length > 1
+  );
+  cellCountOutput.value = `${orbital.candidates.length} / ${visibleModules.length}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+  visibleModules.forEach((module) => appendFingerprintModule(mark, module, palette));
+  svg.append(mark);
+  if (state.showGrid) appendGlyphGridGuides(orbital, palette);
+}
+
+function renderTopologicalCrest(state, palette, pixels) {
+  const topology = makeTopologicalCrest(state, pixels);
+  const visibleModules = topology.modules.filter(
+    (module) => module.size > 1 && module.length > 1
+  );
+  cellCountOutput.value = `${topology.componentCount + topology.counterCount} / ${visibleModules.length + 1}`;
+  const mark = createSvgElement("g", { "data-layer": "mark" });
+  const coreFill = palette.accents[
+    (topology.componentCount + topology.counterCount) % palette.accents.length
+  ];
+  if (topology.counterCount) {
+    mark.append(
+      createSvgElement("circle", {
+        cx: CENTER,
+        cy: CENTER,
+        r: 48,
+        fill: coreFill,
+        "data-shape": "topology-core-ring",
+      }),
+      createSvgElement("circle", {
+        cx: CENTER,
+        cy: CENTER,
+        r: 21,
+        fill: palette.background,
+      })
+    );
+  } else {
+    mark.append(
+      createSvgElement("path", {
+        d: diamondPathData({ x: CENTER - 46, y: CENTER - 46, size: 92 }),
+        fill: coreFill,
+        "data-shape": "topology-core-diamond",
+      })
+    );
+  }
+  visibleModules.forEach((module) => appendFingerprintModule(mark, module, palette));
+  svg.append(mark);
+  if (state.showGrid) appendGlyphGridGuides(topology, palette);
+}
+
 function appendGlyphGridGuides(grid, palette) {
   const guides = createSvgElement("g", {
     fill: "none",
@@ -2268,114 +2424,6 @@ function renderArmature(state, palette, pixels) {
   if (state.showGrid) appendGlyphGridGuides(armature, palette);
 }
 
-function renderIsolines(state, palette, pixels) {
-  const isolines = makeIsolineBands(state, pixels);
-  const edgeCount = isolines.bands.reduce((sum, band) => sum + band.edgeCount, 0);
-  cellCountOutput.value = `${isolines.activeCount} / ${isolines.bands.length}`;
-  const strokeWidth = Math.max(
-    1,
-    isolines.cellSize * Math.min(1.2, Math.abs(state.rowWeight) / 130) - state.cellGap * 0.18
-  );
-  const mark = createSvgElement("g", {
-    fill: "none",
-    "stroke-linecap": "square",
-    "stroke-linejoin": "round",
-    "data-layer": "mark",
-    "data-edge-count": edgeCount,
-  });
-  isolines.bands.forEach((band, index) => {
-    if (!band.d) return;
-    mark.append(
-      createSvgElement("path", {
-        d: band.d,
-        stroke: palette.accents[index % palette.accents.length],
-        "stroke-width": formatNumber(strokeWidth),
-        "data-shape": "isoline",
-        "data-level": band.threshold,
-      })
-    );
-  });
-  svg.append(mark);
-  if (state.showGrid) appendGlyphGridGuides(isolines, palette);
-}
-
-function appendMatrixCut(group, cut, state, palette) {
-  const scale = Math.min(1.5, Math.max(0.2, Math.abs(state.rowWeight) / 86));
-  const width = Math.max(1, (cut.width - state.cellGap) * scale);
-  const height = Math.max(1, (cut.height - state.cellGap) * scale);
-  const x = cut.x + cut.width / 2 - width / 2;
-  const y = cut.y + cut.height / 2 - height / 2;
-  let shape;
-  if (cut.shape === "disc") {
-    shape = createSvgElement("ellipse", {
-      cx: formatNumber(x + width / 2),
-      cy: formatNumber(y + height / 2),
-      rx: formatNumber(width / 2),
-      ry: formatNumber(height / 2),
-      fill: palette.background,
-    });
-  } else if (cut.shape === "wedge") {
-    const slice = Math.min(width, height) * 0.28;
-    shape = createSvgElement("path", {
-      d: `M ${formatNumber(x + slice)} ${formatNumber(y)} L ${formatNumber(x + width)} ${formatNumber(y)} L ${formatNumber(x + width - slice)} ${formatNumber(y + height)} L ${formatNumber(x)} ${formatNumber(y + height)} Z`,
-      fill: palette.background,
-    });
-  } else {
-    shape = createSvgElement("rect", {
-      x: formatNumber(x),
-      y: formatNumber(y),
-      width: formatNumber(width),
-      height: formatNumber(height),
-      rx: cut.shape === "capsule" ? formatNumber(Math.min(width, height) / 2) : 0,
-      fill: palette.background,
-    });
-  }
-  shape.setAttribute("data-shape", "cut");
-  group.append(shape);
-}
-
-function renderMatrix(state, palette, pixels) {
-  const matrix = makeMatrixStencil(state, pixels);
-  cellCountOutput.value = `${matrix.zones.length} / ${matrix.cuts.length}`;
-  const mark = createSvgElement("g", { "data-layer": "mark" });
-  const baseFill = palette.accents[Math.abs(Math.round(state.ringTwist / 10)) % palette.accents.length];
-  if (matrix.baseShape === "circle") {
-    mark.append(createSvgElement("circle", { cx: CENTER, cy: CENTER, r: 350, fill: baseFill, "data-shape": "base-circle" }));
-  } else if (matrix.baseShape === "diamond") {
-    mark.append(createSvgElement("path", { d: diamondPathData({ x: 150, y: 150, size: 700 }), fill: baseFill, "data-shape": "base-diamond" }));
-  } else {
-    mark.append(createSvgElement("rect", { x: 150, y: 150, width: 700, height: 700, fill: baseFill, "data-shape": "base-square" }));
-  }
-  matrix.cuts.forEach((cut) => appendMatrixCut(mark, cut, state, palette));
-  svg.append(mark);
-  if (state.showGrid) appendGlyphGridGuides(matrix, palette);
-}
-
-function renderCrystal(state, palette, pixels) {
-  const crystal = makeCrystalMesh(state, pixels);
-  cellCountOutput.value = `${crystal.allTriangles.length} / ${crystal.triangles.length}`;
-  const gapScale = Math.max(0.08, 1 - state.cellGap / Math.max(1, crystal.step));
-  const sizeScale = Math.min(1.4, Math.max(0.12, Math.abs(state.rowWeight) / 86));
-  const scale = gapScale * sizeScale;
-  const mark = createSvgElement("g", { "data-layer": "mark" });
-  crystal.triangles.forEach((triangle) => {
-    const colorIndex = Math.abs(
-      triangle.row * 7 + triangle.column * 11 + triangle.index * 3 + Math.round(triangle.coverage * 10)
-    ) % palette.accents.length;
-    mark.append(createSvgElement("path", {
-      d: trianglePathData(triangle, scale),
-      fill: palette.accents[colorIndex],
-      "data-shape": "facet",
-    }));
-  });
-  svg.append(mark);
-  if (state.showGrid) {
-    const grid = createSvgElement("g", { fill: "none", stroke: palette.guide, "stroke-width": 1.1, "data-layer": "grid" });
-    crystal.allTriangles.forEach((triangle) => grid.append(createSvgElement("path", { d: trianglePathData(triangle) })));
-    svg.append(grid);
-  }
-}
-
 function renderRadial(state, palette, pixels) {
   const cells = makeCells(state);
   const visibleCellCount = cells.filter((cell) => cellPathData(cell, state.cellGap)).length;
@@ -2423,18 +2471,26 @@ function renderRadial(state, palette, pixels) {
 
 function render() {
   const state = readState();
-  const palette = palettes[state.palette];
+  const basePalette = palettes[state.palette];
+  const palette = state.monochrome
+    ? { ...basePalette, accents: basePalette.accents.map(() => basePalette.foreground) }
+    : basePalette;
   updateControlContext(state);
   const pixels = drawSourceLetter(state);
 
   svg.setAttribute("data-template", state.template);
+  svg.setAttribute("data-monochrome", state.monochrome ? "true" : "false");
   svg.setAttribute(
     "data-symmetry",
-    ["radial-emblem", "radial-fingerprint"].includes(state.template)
+    ["radial-emblem", "radial-fingerprint", "topological-crest"].includes(state.template)
       ? `radial-${state.sectors}`
-      : ["square-kaleidoscope", "modular-crest", "morph-kaleidoscope"].includes(
-            state.template
-          )
+      : [
+            "square-kaleidoscope",
+            "modular-crest",
+            "morph-kaleidoscope",
+            "counterform-kaleidoscope",
+            "orbital-grammar",
+          ].includes(state.template)
         ? state.symmetry
         : state.template === "crest-mandala"
           ? `mandala-${state.sectors}-${state.symmetry}`
@@ -2461,6 +2517,12 @@ function render() {
     renderMorphKaleidoscope(state, palette, pixels);
   } else if (state.template === "crest-mandala") {
     renderCrestMandala(state, palette, pixels);
+  } else if (state.template === "counterform-kaleidoscope") {
+    renderCounterformKaleidoscope(state, palette, pixels);
+  } else if (state.template === "orbital-grammar") {
+    renderOrbitalGrammar(state, palette, pixels);
+  } else if (state.template === "topological-crest") {
+    renderTopologicalCrest(state, palette, pixels);
   } else if (state.template === "tectonics") {
     renderTectonics(state, palette, pixels);
   } else if (state.template === "skeleton") {
@@ -2469,12 +2531,6 @@ function render() {
     renderPacking(state, palette, pixels);
   } else if (state.template === "armature") {
     renderArmature(state, palette, pixels);
-  } else if (state.template === "isolines") {
-    renderIsolines(state, palette, pixels);
-  } else if (state.template === "matrix") {
-    renderMatrix(state, palette, pixels);
-  } else if (state.template === "crystal") {
-    renderCrystal(state, palette, pixels);
   } else {
     renderRadial(state, palette, pixels);
   }
@@ -2597,6 +2653,33 @@ const modeDefaults = {
     fillThreshold: "14",
     ringTwist: "0",
   },
+  "counterform-kaleidoscope": {
+    symmetry: "8",
+    sectors: "10",
+    density: "4",
+    rowWeight: "84",
+    cellGap: "10",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
+  "orbital-grammar": {
+    symmetry: "8",
+    sectors: "12",
+    density: "3",
+    rowWeight: "92",
+    cellGap: "9",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
+  "topological-crest": {
+    symmetry: "8",
+    sectors: "8",
+    density: "3",
+    rowWeight: "86",
+    cellGap: "10",
+    fillThreshold: "14",
+    ringTwist: "0",
+  },
   tectonics: {
     symmetry: "8",
     sectors: "10",
@@ -2633,33 +2716,6 @@ const modeDefaults = {
     fillThreshold: "18",
     ringTwist: "0",
   },
-  isolines: {
-    symmetry: "8",
-    sectors: "18",
-    density: "5",
-    rowWeight: "54",
-    cellGap: "8",
-    fillThreshold: "18",
-    ringTwist: "0",
-  },
-  matrix: {
-    symmetry: "8",
-    sectors: "10",
-    density: "18",
-    rowWeight: "84",
-    cellGap: "14",
-    fillThreshold: "18",
-    ringTwist: "0",
-  },
-  crystal: {
-    symmetry: "8",
-    sectors: "12",
-    density: "4",
-    rowWeight: "82",
-    cellGap: "9",
-    fillThreshold: "18",
-    ringTwist: "0",
-  },
 };
 
 function captureModeParameters() {
@@ -2685,13 +2741,13 @@ function randomize() {
     "radial-fingerprint",
     "morph-kaleidoscope",
     "crest-mandala",
+    "counterform-kaleidoscope",
+    "orbital-grammar",
+    "topological-crest",
     "tectonics",
     "skeleton",
     "packing",
     "armature",
-    "isolines",
-    "matrix",
-    "crystal",
     "brick",
     "galaxy",
     "sunburst",
@@ -2708,13 +2764,13 @@ function randomize() {
     "radial-fingerprint",
     "morph-kaleidoscope",
     "crest-mandala",
+    "counterform-kaleidoscope",
+    "orbital-grammar",
+    "topological-crest",
     "tectonics",
     "skeleton",
     "packing",
     "armature",
-    "isolines",
-    "matrix",
-    "crystal",
   ];
   inputs.template.value =
     Math.random() < 0.65
@@ -2800,6 +2856,24 @@ document.querySelector("#downloadJsonButton").addEventListener("click", () => {
         getSquareGeometry(module, state.cellGap * 1.15)
       ).length +
       fingerprint.modules.filter((module) => module.size > 1 && module.length > 1).length;
+  } else if (state.template === "counterform-kaleidoscope") {
+    const counterform = makeCounterformKaleidoscope(state, drawSourceLetter(state));
+    cellCount = counterform.modules.length;
+    visibleCellCount = counterform.modules.filter(
+      (module) =>
+        module.counterRole === "void" && getSquareGeometry(module, state.cellGap)
+    ).length;
+  } else if (state.template === "orbital-grammar") {
+    const orbital = makeOrbitalGrammar(state, drawSourceLetter(state));
+    cellCount = orbital.candidates.length;
+    visibleCellCount = orbital.modules.filter(
+      (module) => module.size > 1 && module.length > 1
+    ).length;
+  } else if (state.template === "topological-crest") {
+    const topology = makeTopologicalCrest(state, drawSourceLetter(state));
+    cellCount = topology.componentCount + topology.counterCount;
+    visibleCellCount =
+      topology.modules.filter((module) => module.size > 1 && module.length > 1).length + 1;
   } else if (state.template === "tectonics") {
     const tectonics = makeTectonicZones(state, drawSourceLetter(state));
     cellCount = tectonics.activeCount;
@@ -2820,18 +2894,6 @@ document.querySelector("#downloadJsonButton").addEventListener("click", () => {
     visibleCellCount = armature.modules.filter(
       (module) => module.length > 1 && module.thickness > 1
     ).length;
-  } else if (state.template === "isolines") {
-    const isolines = makeIsolineBands(state, drawSourceLetter(state));
-    cellCount = isolines.activeCount;
-    visibleCellCount = isolines.bands.length;
-  } else if (state.template === "matrix") {
-    const matrix = makeMatrixStencil(state, drawSourceLetter(state));
-    cellCount = matrix.zones.length;
-    visibleCellCount = matrix.cuts.length;
-  } else if (state.template === "crystal") {
-    const crystal = makeCrystalMesh(state, drawSourceLetter(state));
-    cellCount = crystal.allTriangles.length;
-    visibleCellCount = crystal.triangles.length;
   } else {
     const cells = makeCells(state);
     cellCount = cells.length;
